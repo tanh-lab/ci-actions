@@ -27,13 +27,14 @@ runs:
           CODENAME=$(lsb_release -cs)
           echo "deb http://apt.llvm.org/${CODENAME}/ llvm-toolchain-${CODENAME}-${{ inputs.CLANG_VERSION }} main" | sudo tee /etc/apt/sources.list.d/llvm.list
           sudo apt-get update
-          sudo apt-get install -y ninja-build clang-${{ inputs.CLANG_VERSION }} clang-tidy-${{ inputs.CLANG_VERSION }} clang-format-${{ inputs.CLANG_VERSION }}
+          sudo apt-get install -y ninja-build libsystemd-dev clang-${{ inputs.CLANG_VERSION }} clang-tidy-${{ inputs.CLANG_VERSION }} clang-format-${{ inputs.CLANG_VERSION }}
 
-          # Set up alternatives so 'clang', 'clang++', 'clang-format', 'clang-tidy' point to the installed version
-          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ inputs.CLANG_VERSION }} 100
-          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${{ inputs.CLANG_VERSION }} 100
-          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-${{ inputs.CLANG_VERSION }} 100
-          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-${{ inputs.CLANG_VERSION }} 100
+          # Force symlinks so 'clang', 'clang++', etc. point to the installed version
+          # update-alternatives alone may not override existing binaries on the runner
+          sudo ln -sf /usr/bin/clang-${{ inputs.CLANG_VERSION }} /usr/bin/clang
+          sudo ln -sf /usr/bin/clang++-${{ inputs.CLANG_VERSION }} /usr/bin/clang++
+          sudo ln -sf /usr/bin/clang-format-${{ inputs.CLANG_VERSION }} /usr/bin/clang-format
+          sudo ln -sf /usr/bin/clang-tidy-${{ inputs.CLANG_VERSION }} /usr/bin/clang-tidy
 
           echo "Installed clang version:"
           clang --version

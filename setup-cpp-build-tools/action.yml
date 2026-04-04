@@ -1,0 +1,47 @@
+name: setup-cpp-build-tools
+description: "Install platform-specific C++ build tools (clang, ninja, etc.)"
+
+inputs:
+  CLANG_VERSION:
+    required: false
+    default: "20"
+    description: "Clang version to install on Linux (e.g. 18, 19, 20)"
+
+runs:
+  using: "composite"
+  steps:
+    - name: printout
+      shell: bash
+      run: |
+        echo "ref=${{ github.ref }}"
+        echo "matrix.name=${{ matrix.name }}"
+        echo "matrix.os=${{ matrix.os }}"
+        uname -a || true
+
+    - name: install deps
+      shell: bash
+      run: |
+        if [[ "${{ matrix.name }}" == Linux-x86_64* ]]; then
+          # Add LLVM apt repository for the requested clang version
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          CODENAME=$(lsb_release -cs)
+          echo "deb http://apt.llvm.org/${CODENAME}/ llvm-toolchain-${CODENAME}-${{ inputs.CLANG_VERSION }} main" | sudo tee /etc/apt/sources.list.d/llvm.list
+          sudo apt-get update
+          sudo apt-get install -y ninja-build clang-${{ inputs.CLANG_VERSION }} clang-tidy-${{ inputs.CLANG_VERSION }} clang-format-${{ inputs.CLANG_VERSION }}
+
+          # Set up alternatives so 'clang', 'clang++', 'clang-format', 'clang-tidy' point to the installed version
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ inputs.CLANG_VERSION }} 100
+          sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${{ inputs.CLANG_VERSION }} 100
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-${{ inputs.CLANG_VERSION }} 100
+          sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-${{ inputs.CLANG_VERSION }} 100
+
+          echo "Installed clang version:"
+          clang --version
+        elif [[ "${{ matrix.name }}" == macOS* ]]; then
+          brew install osxutils ninja
+          echo "brew prefix: $(brew --prefix)"
+        elif [[ "${{ matrix.name }}" == Windows* ]]; then
+          choco install ninja llvm
+        else
+          echo "Unknown platform: ${{ matrix.name }}"
+        fi

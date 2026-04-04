@@ -1,0 +1,86 @@
+name: cmake-build
+description: "Configure and build a CMake project (supports presets and manual mode)"
+
+inputs:
+  PRESET:
+    required: false
+    description: "CMake preset name. If set, uses preset mode (cmake --preset). Otherwise falls back to manual mode."
+  BUILD_TYPE:
+    required: false
+    description: "The build type (used in manual mode only)"
+  CMAKE_BUILD_PARALLEL_LEVEL:
+    required: false
+    default: "4"
+    description: "The number of parallel builds"
+  CMAKE_BUILD_ARGS:
+    required: false
+    description: "Additional cmake configure arguments (used in manual mode only)"
+  TARGETS:
+    required: false
+    description: "Space-separated list of targets to build (optional)"
+
+runs:
+  using: "composite"
+  steps:
+    - name: cache the build
+      uses: mozilla-actions/sccache-action@v0.0.8
+
+    - name: print build configuration
+      shell: bash
+      run: |
+        echo "PRESET=${{ inputs.PRESET }}"
+        echo "BUILD_TYPE=${{ inputs.BUILD_TYPE }}"
+        echo "CMAKE_BUILD_PARALLEL_LEVEL=${{ inputs.CMAKE_BUILD_PARALLEL_LEVEL }}"
+        echo "CMAKE_BUILD_ARGS=${{ inputs.CMAKE_BUILD_ARGS }}"
+        echo "TARGETS=${{ inputs.TARGETS }}"
+
+    - name: cmake configure
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.PRESET }}" ]; then
+          # Preset mode
+          cmake --preset ${{ inputs.PRESET }} \
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+        else
+          # Manual mode with platform branching
+          if [[ "${{ matrix.name }}" == Linux-x86_64* ]]; then
+            cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ inputs.BUILD_TYPE }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ${{ inputs.CMAKE_BUILD_ARGS }}
+          elif [[ "${{ matrix.name }}" == macOS-x86_64* ]]; then
+            cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ inputs.BUILD_TYPE }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_OSX_ARCHITECTURES=x86_64 ${{ inputs.CMAKE_BUILD_ARGS }}
+          elif [[ "${{ matrix.name }}" == macOS-arm64* ]]; then
+            cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ inputs.BUILD_TYPE }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_OSX_ARCHITECTURES=arm64 ${{ inputs.CMAKE_BUILD_ARGS }}
+          elif [[ "${{ matrix.name }}" == Windows-x86_64* ]]; then
+            cmake -B build -DCMAKE_BUILD_TYPE=${{ inputs.BUILD_TYPE }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ${{ inputs.CMAKE_BUILD_ARGS }}
+          else
+            cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ inputs.BUILD_TYPE }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ${{ inputs.CMAKE_BUILD_ARGS }}
+          fi
+        fi
+
+    - name: build targets
+      shell: bash
+      run: |
+        TARGETS="${{ inputs.TARGETS }}"
+        if [ -n "${{ inputs.PRESET }}" ]; then
+          # Preset mode
+          if [ -n "${TARGETS}" ]; then
+            for target in ${TARGETS}; do
+              echo "Building target: $target"
+              cmake --build --preset ${{ inputs.PRESET }} --parallel ${{ inputs.CMAKE_BUILD_PARALLEL_LEVEL }} --target $target
+            done
+          else
+            echo "Building all targets"
+            cmake --build --preset ${{ inputs.PRESET }} --parallel ${{ inputs.CMAKE_BUILD_PARALLEL_LEVEL }}
+          fi
+        else
+          # Manual mode
+          if [ -n "${TARGETS}" ]; then
+            for target in ${TARGETS}; do
+              echo "Building target: $target"
+              cmake --build build --config ${{ inputs.BUILD_TYPE }} --parallel ${{ inputs.CMAKE_BUILD_PARALLEL_LEVEL }} --target $target
+            done
+          else
+            echo "Building all targets"
+            cmake --build build --config ${{ inputs.BUILD_TYPE }} --parallel ${{ inputs.CMAKE_BUILD_PARALLEL_LEVEL }}
+          fi
+        fi

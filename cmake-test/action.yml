@@ -1,0 +1,19 @@
+name: cmake-test
+description: "Run CTest (supports presets and manual mode)"
+
+inputs:
+  PRESET:
+    required: false
+    description: "CMake test preset name. If set, uses ctest --preset. Otherwise falls back to ctest --test-dir build."
+
+runs:
+  using: "composite"
+  steps:
+    - name: ctest
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.PRESET }}" ]; then
+          ctest --preset ${{ inputs.PRESET }}
+        else
+          ctest --test-dir build --output-on-failure
+        fi

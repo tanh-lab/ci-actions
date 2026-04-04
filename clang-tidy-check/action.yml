@@ -1,0 +1,54 @@
+name: clang-tidy-check
+description: "Run clang-tidy on C++ sources (fails on any warning)"
+
+inputs:
+  SOURCES:
+    required: true
+    description: "Space-separated directories to check (e.g. 'src/')"
+  BUILD_DIR:
+    required: false
+    default: "build"
+    description: "Path to build directory containing compile_commands.json (used when PRESET is not set)"
+  PRESET:
+    required: false
+    description: "CMake preset name. If set, derives the build directory from the preset's binaryDir."
+
+runs:
+  using: "composite"
+  steps:
+    - name: determine build directory
+      id: builddir
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.PRESET }}" ]; then
+          # Extract binaryDir from CMakePresets.json for the given preset
+          BINARY_DIR=$(python3 -c "
+        import json, sys
+        with open('CMakePresets.json') as f:
+            data = json.load(f)
+        for p in data.get('configurePresets', []):
+            if p['name'] == '${{ inputs.PRESET }}':
+                bd = p.get('binaryDir', 'build')
+                bd = bd.replace('\${sourceDir}/', '').replace('\${sourceDir}', '.')
+                print(bd)
+                sys.exit(0)
+        print('build')
+        ")
+          echo "BUILD_DIR=${BINARY_DIR}" >> $GITHUB_OUTPUT
+        else
+          echo "BUILD_DIR=${{ inputs.BUILD_DIR }}" >> $GITHUB_OUTPUT
+        fi
+        echo "Using build directory: $(grep BUILD_DIR $GITHUB_OUTPUT)"
+
+    - name: run clang-tidy
+      shell: bash
+      run: |
+        echo "Running clang-tidy on: ${{ inputs.SOURCES }}"
+        echo "Build directory: ${{ steps.builddir.outputs.BUILD_DIR }}"
+        echo "Using clang-tidy: $(clang-tidy --version)"
+        FILES=$(find ${{ inputs.SOURCES }} -name '*.cpp' -type f)
+        if [ -z "$FILES" ]; then
+          echo "No source files found."
+          exit 0
+        fi
+        echo "$FILES" | xargs clang-tidy -p ${{ steps.builddir.outputs.BUILD_DIR }} --warnings-as-errors='*'

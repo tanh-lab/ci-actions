@@ -46,9 +46,11 @@ runs:
         echo "Running clang-tidy on: ${{ inputs.SOURCES }}"
         echo "Build directory: ${{ steps.builddir.outputs.BUILD_DIR }}"
         echo "Using clang-tidy: $(clang-tidy --version)"
+        NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
         FILES=$(find ${{ inputs.SOURCES }} -name '*.cpp' -type f)
         if [ -z "$FILES" ]; then
           echo "No source files found."
           exit 0
         fi
-        echo "$FILES" | xargs clang-tidy -p ${{ steps.builddir.outputs.BUILD_DIR }} --warnings-as-errors='*'
+        echo "Running with $NPROC parallel jobs"
+        echo "$FILES" | xargs -P "$NPROC" -n 1 clang-tidy -p ${{ steps.builddir.outputs.BUILD_DIR }} --warnings-as-errors='*'

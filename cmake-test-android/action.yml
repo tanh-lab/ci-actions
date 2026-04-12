@@ -1,5 +1,5 @@
 name: cmake-test-android
-description: "Build, boot an Android emulator, and run native test binaries"
+description: "Boot an Android emulator and run native test binaries"
 
 inputs:
   PRESET:
@@ -8,7 +8,7 @@ inputs:
   TEST_BINARIES:
     required: false
     default: ""
-    description: "Space-separated list of test binary names (e.g. 'test_core test_state'). If empty, auto-discovers all test_* executables in the build directory."
+    description: "Space-separated list of test binary names (e.g. 'test_core test_state'). If empty, auto-discovers all test_* binaries in the build tree."
   API_LEVEL:
     required: false
     default: "24"
@@ -28,7 +28,7 @@ runs:
         sudo udevadm control --reload-rules
         sudo udevadm trigger --name-match=kvm
 
-    - name: Resolve build directory
+    - name: Resolve build directory and collect binaries
       id: resolve
       shell: bash
       run: |
@@ -45,17 +45,19 @@ runs:
         echo "build_dir=$BUILD_DIR" >> "$GITHUB_OUTPUT"
         echo "Build directory: $BUILD_DIR"
 
-    - name: Collect test binaries
-      id: collect
-      shell: bash
-      run: |
-        BUILD_DIR="${{ steps.resolve.outputs.build_dir }}"
         BINARIES="${{ inputs.TEST_BINARIES }}"
         if [ -z "$BINARIES" ]; then
-          # Auto-discover: find test_* executables (not .cpp, not directories)
-          BINARIES=$(find "$BUILD_DIR/test" -name "test_*" -type f -executable 2>/dev/null \
-            | grep -v '\.' | sort | xargs -I{} basename {} | tr '\n' ' ')
+          # Auto-discover: find ELF test binaries (cross-compiled, not host-executable)
+          BINARIES=$(find "$BUILD_DIR/test" -name "test_*" -type f ! -name "*.cpp" ! -name "*.o" ! -name "*.cmake" ! -name "*.d" 2>/dev/null \
+            | while read f; do file "$f" | grep -q ELF && basename "$f"; done \
+            | sort | tr '\n' ' ')
         fi
+
+        if [ -z "$BINARIES" ]; then
+          echo "ERROR: No test binaries found in $BUILD_DIR/test"
+          exit 1
+        fi
+
         echo "binaries=$BINARIES" >> "$GITHUB_OUTPUT"
         echo "Test binaries: $BINARIES"
 
@@ -67,11 +69,11 @@ runs:
         emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
         script: |
           BUILD_DIR="${{ steps.resolve.outputs.build_dir }}"
-          BINARIES="${{ steps.collect.outputs.binaries }}"
+          BINARIES="${{ steps.resolve.outputs.binaries }}"
           for binary in $BINARIES; do
-            DIR=$(find "$BUILD_DIR/test" -name "$binary" -type f -executable | head -1)
-            if [ -z "$DIR" ]; then echo "ERROR: $binary not found"; exit 1; fi
-            adb push "$DIR" /data/local/tmp/
+            BINARY_PATH=$(find "$BUILD_DIR/test" -name "$binary" -type f | head -1)
+            echo "Pushing $binary ($BINARY_PATH)"
+            adb push "$BINARY_PATH" /data/local/tmp/
             adb shell chmod +x "/data/local/tmp/$binary"
           done
           for binary in $BINARIES; do

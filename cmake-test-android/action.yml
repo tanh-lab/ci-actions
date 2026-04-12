@@ -61,23 +61,30 @@ runs:
         echo "binaries=$BINARIES" >> "$GITHUB_OUTPUT"
         echo "Test binaries: $BINARIES"
 
+        # Generate flat script for emulator-runner (it runs each line as separate sh -c)
+        SCRIPT=""
+        for binary in $BINARIES; do
+          BINARY_PATH=$(find "$BUILD_DIR/test" -name "$binary" -type f | head -1)
+          SCRIPT="${SCRIPT}adb push ${BINARY_PATH} /data/local/tmp/
+        adb shell chmod +x /data/local/tmp/${binary}
+        "
+        done
+        for binary in $BINARIES; do
+          SCRIPT="${SCRIPT}echo '=== ${binary} ===' && adb shell /data/local/tmp/${binary} 2>&1 | tee /tmp/${binary}.txt && grep -q '\[  PASSED  \]' /tmp/${binary}.txt
+        "
+        done
+
+        # Write multiline output
+        {
+          echo "script<<SCRIPT_EOF"
+          echo "$SCRIPT"
+          echo "SCRIPT_EOF"
+        } >> "$GITHUB_OUTPUT"
+
     - name: Run tests on Android emulator
       uses: reactivecircus/android-emulator-runner@v2
       with:
         api-level: ${{ inputs.API_LEVEL }}
         arch: ${{ inputs.ARCH }}
         emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
-        script: |
-          BUILD_DIR="${{ steps.resolve.outputs.build_dir }}"
-          BINARIES="${{ steps.resolve.outputs.binaries }}"
-          for binary in $BINARIES; do
-            BINARY_PATH=$(find "$BUILD_DIR/test" -name "$binary" -type f | head -1)
-            echo "Pushing $binary ($BINARY_PATH)"
-            adb push "$BINARY_PATH" /data/local/tmp/
-            adb shell chmod +x "/data/local/tmp/$binary"
-          done
-          for binary in $BINARIES; do
-            echo "=== $binary ==="
-            adb shell "/data/local/tmp/$binary" 2>&1 | tee "/tmp/${binary}.txt"
-            grep -q "\[  PASSED  \]" "/tmp/${binary}.txt" || { echo "FAILED: $binary"; exit 1; }
-          done
+        script: ${{ steps.resolve.outputs.script }}

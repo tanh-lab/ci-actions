@@ -1,0 +1,95 @@
+name: cmake-test-ios-simulator
+description: "Run test binaries on the iOS Simulator (one launch per binary, not per test)"
+
+inputs:
+  PRESET:
+    required: true
+    description: "CMake configure preset name (used to locate the build directory)"
+  TEST_BINARIES:
+    required: false
+    default: ""
+    description: "Space-separated list of test binary names (e.g. 'test_core test_state'). If empty, auto-discovers all .app bundles in the build directory."
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run tests on iOS Simulator
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Resolve build directory from the preset
+        BUILD_DIR=$(cmake --preset ${{ inputs.PRESET }} -N 2>/dev/null \
+          | grep 'CMAKE_BINARY_DIR' | sed 's/.*= *//' || true)
+        if [ -z "$BUILD_DIR" ]; then
+          # Fallback: parse binaryDir from CMakePresets.json
+          BUILD_DIR=$(python3 -c "
+        import json, sys
+        with open('CMakePresets.json') as f:
+            presets = json.load(f)
+        for p in presets.get('configurePresets', []):
+            if p['name'] == '${{ inputs.PRESET }}':
+                print(p['binaryDir'].replace('\${sourceDir}', '.'))
+                sys.exit(0)
+        sys.exit(1)
+        ")
+        fi
+        echo "Build directory: $BUILD_DIR"
+
+        # Collect test .app bundles
+        BINARIES="${{ inputs.TEST_BINARIES }}"
+        if [ -z "$BINARIES" ]; then
+          # Auto-discover: find all .app bundles that start with test_
+          APPS=$(find "$BUILD_DIR" -name "test_*.app" -type d 2>/dev/null | sort)
+        else
+          APPS=""
+          for bin in $BINARIES; do
+            APP=$(find "$BUILD_DIR" -name "${bin}.app" -type d | head -1)
+            if [ -z "$APP" ]; then
+              echo "ERROR: ${bin}.app not found in $BUILD_DIR"
+              exit 1
+            fi
+            APPS="$APPS $APP"
+          done
+        fi
+
+        if [ -z "$APPS" ]; then
+          echo "ERROR: No test .app bundles found in $BUILD_DIR"
+          exit 1
+        fi
+
+        # Boot simulator
+        DEVICE_FAMILY="${IOS_TEST_DEVICE_FAMILY:-iPhone}"
+        SIMULATOR_INFO=$(xcrun simctl list devices available | grep -m 1 "${DEVICE_FAMILY}" | head -n 1)
+        if [ -z "$SIMULATOR_INFO" ]; then
+          echo "ERROR: No ${DEVICE_FAMILY} simulators found"
+          exit 1
+        fi
+        SIMULATOR_UDID=$(echo "$SIMULATOR_INFO" | grep -E -o '([A-F0-9-]{36})')
+        echo "Booting simulator: $SIMULATOR_UDID"
+        xcrun simctl boot "$SIMULATOR_UDID" 2>/dev/null || true
+
+        # Run each test binary
+        FAILED=0
+        for APP_PATH in $APPS; do
+          APP_NAME=$(basename "$APP_PATH" .app)
+          echo ""
+          echo "=== $APP_NAME ==="
+
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "${APP_PATH}/Info.plist" 2>/dev/null || echo "com.tanh.${APP_NAME}")
+
+          xcrun simctl terminate "$SIMULATOR_UDID" "$BUNDLE_ID" 2>/dev/null || true
+          xcrun simctl install "$SIMULATOR_UDID" "$APP_PATH"
+          xcrun simctl launch --console-pty "$SIMULATOR_UDID" "$BUNDLE_ID" 2>&1 | tee "/tmp/${APP_NAME}.txt" || true
+
+          if ! grep -q "\[  PASSED  \]" "/tmp/${APP_NAME}.txt"; then
+            echo "FAILED: $APP_NAME"
+            FAILED=1
+          fi
+        done
+
+        if [ "$FAILED" -ne 0 ]; then
+          echo ""
+          echo "Some tests failed!"
+          exit 1
+        fi

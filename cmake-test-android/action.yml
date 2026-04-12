@@ -1,0 +1,81 @@
+name: cmake-test-android
+description: "Build, boot an Android emulator, and run native test binaries"
+
+inputs:
+  PRESET:
+    required: true
+    description: "CMake configure preset name (used to locate the build directory)"
+  TEST_BINARIES:
+    required: false
+    default: ""
+    description: "Space-separated list of test binary names (e.g. 'test_core test_state'). If empty, auto-discovers all test_* executables in the build directory."
+  API_LEVEL:
+    required: false
+    default: "24"
+    description: "Android API level for the emulator"
+  ARCH:
+    required: false
+    default: "x86_64"
+    description: "Emulator architecture"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Enable KVM
+      shell: bash
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+
+    - name: Resolve build directory
+      id: resolve
+      shell: bash
+      run: |
+        BUILD_DIR=$(python3 -c "
+        import json, sys
+        with open('CMakePresets.json') as f:
+            presets = json.load(f)
+        for p in presets.get('configurePresets', []):
+            if p['name'] == '${{ inputs.PRESET }}':
+                print(p['binaryDir'].replace('\${sourceDir}', '.'))
+                sys.exit(0)
+        sys.exit(1)
+        ")
+        echo "build_dir=$BUILD_DIR" >> "$GITHUB_OUTPUT"
+        echo "Build directory: $BUILD_DIR"
+
+    - name: Collect test binaries
+      id: collect
+      shell: bash
+      run: |
+        BUILD_DIR="${{ steps.resolve.outputs.build_dir }}"
+        BINARIES="${{ inputs.TEST_BINARIES }}"
+        if [ -z "$BINARIES" ]; then
+          # Auto-discover: find test_* executables (not .cpp, not directories)
+          BINARIES=$(find "$BUILD_DIR/test" -name "test_*" -type f -executable 2>/dev/null \
+            | grep -v '\.' | sort | xargs -I{} basename {} | tr '\n' ' ')
+        fi
+        echo "binaries=$BINARIES" >> "$GITHUB_OUTPUT"
+        echo "Test binaries: $BINARIES"
+
+    - name: Run tests on Android emulator
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: ${{ inputs.API_LEVEL }}
+        arch: ${{ inputs.ARCH }}
+        emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+        script: |
+          BUILD_DIR="${{ steps.resolve.outputs.build_dir }}"
+          BINARIES="${{ steps.collect.outputs.binaries }}"
+          for binary in $BINARIES; do
+            DIR=$(find "$BUILD_DIR/test" -name "$binary" -type f -executable | head -1)
+            if [ -z "$DIR" ]; then echo "ERROR: $binary not found"; exit 1; fi
+            adb push "$DIR" /data/local/tmp/
+            adb shell chmod +x "/data/local/tmp/$binary"
+          done
+          for binary in $BINARIES; do
+            echo "=== $binary ==="
+            adb shell "/data/local/tmp/$binary" 2>&1 | tee "/tmp/${binary}.txt"
+            grep -q "\[  PASSED  \]" "/tmp/${binary}.txt" || { echo "FAILED: $binary"; exit 1; }
+          done

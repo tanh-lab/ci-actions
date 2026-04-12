@@ -43,6 +43,11 @@ runs:
           echo "brew prefix: $(brew --prefix)"
         elif [[ "${{ matrix.name }}" == Windows* ]]; then
           choco install ninja llvm
+        elif [[ "${{ matrix.name }}" == iOS* ]]; then
+          brew install ninja
+          echo "iOS build — Xcode tools from runner image"
+        elif [[ "${{ matrix.name }}" == Android* ]]; then
+          echo "Android build — NDK expected via nttld/setup-ndk"
         else
           echo "Unknown platform: ${{ matrix.name }}"
         fi

@@ -34,6 +34,9 @@ runs:
         echo "CMAKE_BUILD_ARGS=${{ inputs.CMAKE_BUILD_ARGS }}"
         echo "TARGETS=${{ inputs.TARGETS }}"
 
+    # Configure output is kept in configure.log (the pipe is safe: composite
+    # bash steps run with -o pipefail) so calling workflows can assert on it —
+    # e.g. anira greps for its backend auto-disable warnings.
     - name: cmake configure
       shell: bash
       run: |
@@ -41,19 +44,19 @@ runs:
           # Preset mode
           cmake --preset ${{ inputs.PRESET }} \
             -DCMAKE_C_COMPILER_LAUNCHER=sccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache 2>&1 | tee configure.log
         else
           # Manual mode with platform branching
           if [[ "${{ matrix.name }}" == Linux-x86_64* ]]; then
-            cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ inputs.BUILD_TYPE }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ${{ inputs.CMAKE_BUILD_ARGS }}
+            cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ inputs.BUILD_TYPE }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ${{ inputs.CMAKE_BUILD_ARGS }} 2>&1 | tee configure.log
           elif [[ "${{ matrix.name }}" == macOS-x86_64* ]]; then
-            cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ inputs.BUILD_TYPE }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_OSX_ARCHITECTURES=x86_64 ${{ inputs.CMAKE_BUILD_ARGS }}
+            cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ inputs.BUILD_TYPE }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_OSX_ARCHITECTURES=x86_64 ${{ inputs.CMAKE_BUILD_ARGS }} 2>&1 | tee configure.log
           elif [[ "${{ matrix.name }}" == macOS-arm64* ]]; then
-            cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ inputs.BUILD_TYPE }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_OSX_ARCHITECTURES=arm64 ${{ inputs.CMAKE_BUILD_ARGS }}
+            cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ inputs.BUILD_TYPE }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_OSX_ARCHITECTURES=arm64 ${{ inputs.CMAKE_BUILD_ARGS }} 2>&1 | tee configure.log
           elif [[ "${{ matrix.name }}" == Windows-x86_64* ]]; then
-            cmake -B build -DCMAKE_BUILD_TYPE=${{ inputs.BUILD_TYPE }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ${{ inputs.CMAKE_BUILD_ARGS }}
+            cmake -B build -DCMAKE_BUILD_TYPE=${{ inputs.BUILD_TYPE }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ${{ inputs.CMAKE_BUILD_ARGS }} 2>&1 | tee configure.log
           else
-            cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ inputs.BUILD_TYPE }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ${{ inputs.CMAKE_BUILD_ARGS }}
+            cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ inputs.BUILD_TYPE }} -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ${{ inputs.CMAKE_BUILD_ARGS }} 2>&1 | tee configure.log
           fi
         fi
 

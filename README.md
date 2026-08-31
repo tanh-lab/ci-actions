@@ -48,3 +48,9 @@ Actions use `matrix.name` for platform detection:
 - `macOS-x86_64`
 - `macOS-arm64`
 - `Windows-x86_64`
+
+## Versioning
+
+Consumers pin a release tag (`uses: tanh-lab/ci-actions/<action>@v0.1.0`)
+instead of `@main`. Changes are recorded in [CHANGELOG.md](CHANGELOG.md);
+a breaking change updates the consumers (tanh-lib, anira) in the same motion.

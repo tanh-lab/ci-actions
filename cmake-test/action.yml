@@ -5,6 +5,10 @@ inputs:
   PRESET:
     required: false
     description: "CMake test preset name. If set, uses ctest --preset. Otherwise falls back to ctest --test-dir build."
+  CTEST_ARGS:
+    required: false
+    default: ""
+    description: "Additional arguments passed to ctest in both modes (e.g. -j 4 to run tests in parallel, -R to filter)"
 
 runs:
   using: "composite"
@@ -13,7 +17,7 @@ runs:
       shell: bash
       run: |
         if [ -n "${{ inputs.PRESET }}" ]; then
-          ctest --preset ${{ inputs.PRESET }}
+          ctest --preset ${{ inputs.PRESET }} ${{ inputs.CTEST_ARGS }}
         else
-          ctest --test-dir build --output-on-failure
+          ctest --test-dir build --output-on-failure ${{ inputs.CTEST_ARGS }}
         fi

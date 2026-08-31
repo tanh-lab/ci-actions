@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [0.2.2] - 2026-08-31
+
+### Fixed
+
+- `clang-tidy-check`'s `FILES` input reaches the script through the environment
+  instead of inline substitution — a multi-line file list broke the shell
+  syntax (`syntax error near unexpected token`), and inline substitution of
+  caller-provided text was an injection hazard besides.
+
 ## [0.2.1] - 2026-08-31
 
 ### Fixed

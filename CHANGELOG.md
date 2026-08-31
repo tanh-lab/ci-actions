@@ -14,6 +14,13 @@ as grown on `main`: `setup-cpp-build-tools`, `cmake-build`, `cmake-test`,
 `clang-tidy-check`. All actions detect the platform via the calling job's
 `matrix.name` (see README).
 
+### Fixed
+
+- `cmake-build` exports `ACTIONS_CACHE_SERVICE_V2=on` before starting the
+  sccache server. Without it, sccache's GHA cache client falls back to the
+  retired v1 cache API — every read 404s and every write fails with "Cannot
+  write to read-only storage", a permanent 0% hit rate for every consumer.
+
 ### Added
 
 - `cmake-build` keeps the configure output in `configure.log` (both preset and

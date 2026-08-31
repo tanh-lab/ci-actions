@@ -22,6 +22,14 @@ inputs:
 runs:
   using: "composite"
   steps:
+    # Without this, sccache's GHA cache client falls back to the retired v1
+    # cache API: every read 404s and every write fails with "Cannot write to
+    # read-only storage" — a permanent 0% hit rate. Exported before the sccache
+    # server starts so it and all later steps inherit it.
+    - name: enable the cache service v2 protocol
+      shell: bash
+      run: echo "ACTIONS_CACHE_SERVICE_V2=on" >> "$GITHUB_ENV"
+
     - name: cache the build
       uses: mozilla-actions/sccache-action@v0.0.8
 

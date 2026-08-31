@@ -1,0 +1,45 @@
+name: cmake-build-wasm
+description: "Configure and build a CMake preset under a pinned Emscripten SDK"
+
+# A composite, not a reusable workflow, on purpose: consumers append their own
+# steps to the same job (e.g. an npm package build over the emitted wasm), which
+# a called workflow's separate job could not see. The EMSDK_VERSION default is
+# the shared pin — bump it here so every tanh-lab repo moves together.
+
+inputs:
+  PRESET:
+    required: true
+    description: "CMake configure + build preset name (the wasm preset)"
+  EMSDK_VERSION:
+    required: false
+    default: "4.0.23"
+    description: "Emscripten SDK version; the default is the shared tanh-lab pin"
+
+runs:
+  using: "composite"
+  steps:
+    - name: install ninja
+      if: runner.os == 'Linux'
+      shell: bash
+      run: command -v ninja >/dev/null || { sudo apt-get update && sudo apt-get install -y ninja-build; }
+
+    - name: setup emsdk
+      uses: mymindstorm/setup-emsdk@v14
+      with:
+        version: ${{ inputs.EMSDK_VERSION }}
+        actions-cache-folder: emsdk-cache-${{ inputs.EMSDK_VERSION }}
+
+    - name: verify EMSDK env
+      shell: bash
+      run: |
+        echo "EMSDK=$EMSDK"
+        test -n "$EMSDK"
+        emcc --version
+
+    - name: configure
+      shell: bash
+      run: cmake --preset ${{ inputs.PRESET }}
+
+    - name: build
+      shell: bash
+      run: cmake --build --preset ${{ inputs.PRESET }} -j

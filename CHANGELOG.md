@@ -17,6 +17,10 @@ change here updates the consumers in the same motion.
   push-to-main cache warmer — callers keep only their facts. Release rule: the
   internal `@vX.Y.Z` action refs inside these workflows are bumped as part of
   tagging.
+- `cmake-build-wasm`: configure + build a CMake preset under a pinned
+  Emscripten SDK. The `EMSDK_VERSION` default is the shared tanh-lab pin —
+  bumping it here moves every consumer together. A composite (not a reusable
+  workflow) so consumers can append same-job steps over the emitted wasm.
 - `cmake-test-android` gains `DEVICE_DIR`, `EXTRA_PUSH_PATHS` (shared
   libraries, model trees, `libc++_shared.so`) and `RUN_ENV` (e.g.
   `LD_LIBRARY_PATH=...`) inputs.

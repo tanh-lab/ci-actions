@@ -21,7 +21,7 @@ runs:
     - name: install deps
       shell: bash
       run: |
-        if [[ "${{ matrix.name }}" == Linux-x86_64* ]]; then
+        if [[ "${{ matrix.name }}" == Linux-* ]]; then
           # Add LLVM apt repository for the requested clang version
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
           CODENAME=$(lsb_release -cs)

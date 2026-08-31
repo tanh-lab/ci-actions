@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [0.2.1] - 2026-08-31
+
+### Fixed
+
+- `setup-cpp-build-tools` matches every `Linux-*` matrix name, not only
+  `Linux-x86_64*` — arm64 Linux legs (anira: `ubuntu-24.04-arm`) previously fell
+  through to the unknown-platform branch and got no ninja/clang (apt.llvm.org
+  serves arm64 packages).
+
 ## [0.2.0] - 2026-08-31
 
 ### Added

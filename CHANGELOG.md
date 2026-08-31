@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [0.3.4] - 2026-08-31
+
+### Added
+
+- `preset-binary-dir`: the canonical inherits-aware binaryDir resolver as a
+  standalone action with a `BUILD_DIR` output (callers stop hardcoding preset
+  binaryDirs in matrices).
+- `cmake-build` reports the sccache hit rate into the job's step summary
+  (cache regressions become glanceable instead of log archaeology), exports
+  `SCCACHE_GHA_ENABLED` itself (callers need no sccache env block), and gains
+  an opt-in `SCCACHE_MULTIARCH` input for multi-`-arch` legs (sccache flags
+  the mode "may be unsound" — adopt per leg on evidence). Reusable
+  `build-test` exposes it as the `multiarch` matrix key and notes a
+  model-fixture cache miss in the summary.
+
+### Fixed
+
+- `setup-cpp-build-tools` falls back to the runner OS when the calling job
+  has no `matrix.name` (previously such jobs silently installed nothing).
+
 ## [0.3.3] - 2026-08-31
 
 ### Changed

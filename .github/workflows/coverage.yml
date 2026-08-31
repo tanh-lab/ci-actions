@@ -69,17 +69,17 @@ jobs:
           key: ${{ inputs.models_cache_prefix }}-${{ hashFiles(inputs.models_hash_glob) }}
           enableCrossOsArchive: true
       - name: setup build tools
-        uses: tanh-lab/ci-actions/setup-cpp-build-tools@v0.3.3
+        uses: tanh-lab/ci-actions/setup-cpp-build-tools@v0.3.4
       # llvm-profdata/llvm-cov matching the default clang major.
       - name: install llvm tools
         run: sudo apt-get update && sudo apt-get install -y llvm
       - name: build
-        uses: tanh-lab/ci-actions/cmake-build@v0.3.3
+        uses: tanh-lab/ci-actions/cmake-build@v0.3.4
         with:
           PRESET: ${{ inputs.preset }}
           CMAKE_BUILD_ARGS: ${{ inputs.build_args }}
       - name: test
-        uses: tanh-lab/ci-actions/cmake-test@v0.3.3
+        uses: tanh-lab/ci-actions/cmake-test@v0.3.4
         with:
           PRESET: ${{ inputs.preset }}
       - name: export lcov

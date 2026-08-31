@@ -21,7 +21,10 @@ runs:
     - name: install deps
       shell: bash
       run: |
-        if [[ "${{ matrix.name }}" == Linux-* ]]; then
+        # Jobs without a matrix fall back to the runner OS (Linux/macOS/Windows).
+        NAME="${{ matrix.name }}"
+        [ -n "$NAME" ] || NAME="${{ runner.os }}"
+        if [[ "$NAME" == Linux* ]]; then
           # Add LLVM apt repository for the requested clang version
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
           CODENAME=$(lsb_release -cs)
@@ -38,16 +41,16 @@ runs:
 
           echo "Installed clang version:"
           clang --version
-        elif [[ "${{ matrix.name }}" == macOS* ]]; then
+        elif [[ "$NAME" == macOS* ]]; then
           brew install osxutils ninja
           echo "brew prefix: $(brew --prefix)"
-        elif [[ "${{ matrix.name }}" == Windows* ]]; then
+        elif [[ "$NAME" == Windows* ]]; then
           choco install ninja llvm
-        elif [[ "${{ matrix.name }}" == iOS* ]]; then
+        elif [[ "$NAME" == iOS* ]]; then
           brew install ninja
           echo "iOS build — Xcode tools from runner image"
-        elif [[ "${{ matrix.name }}" == Android* ]]; then
+        elif [[ "$NAME" == Android* ]]; then
           echo "Android build — NDK expected via nttld/setup-ndk"
         else
-          echo "Unknown platform: ${{ matrix.name }}"
+          echo "Unknown platform: $NAME"
         fi

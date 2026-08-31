@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [0.3.1] - 2026-08-31
+
+### Added
+
+- Reusable `build-test`: a `build_only` matrix flag for cross-compiled legs —
+  the build runs, the test and configure-assert steps are skipped.
+
 ## [0.3.0] - 2026-08-31
 
 ### Added

@@ -10,6 +10,11 @@ change here updates the consumers in the same motion.
 
 ### Added
 
+- `cmake-build` appends `CMAKE_BUILD_ARGS` in preset mode too (previously
+  manual-mode-only), so one preset can serve several configurations — e.g.
+  anira's backend sets ride on platform presets instead of a preset per
+  combination.
+
 - `clang-tidy-check` gains an optional `FILES` input for diff-based runs: pass
   a changed-files list (e.g. a PR's) and only the entries inside the `SOURCES`
   scope are analysed — an empty intersection passes. Full-sweep behavior when

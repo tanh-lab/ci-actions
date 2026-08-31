@@ -46,18 +46,23 @@ runs:
 
     - name: run clang-tidy
       shell: bash
+      env:
+        # Through the environment, not inline substitution: the list is
+        # newline-separated, and inlining it into the script breaks the shell
+        # syntax (and would be an injection vector).
+        TIDY_FILES: ${{ inputs.FILES }}
       run: |
         echo "Running clang-tidy on: ${{ inputs.SOURCES }}"
         echo "Build directory: ${{ steps.builddir.outputs.BUILD_DIR }}"
         echo "Using clang-tidy: $(clang-tidy --version)"
         NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
-        if [ -n "${{ inputs.FILES }}" ]; then
+        if [ -n "$TIDY_FILES" ]; then
           # Diff mode: intersect the given list with the SOURCES scope, so a
           # caller can pass a raw changed-files list — PRs check only what they
           # touch, the full sweep stays on push/nightly runs. Deleted files and
           # anything outside SOURCES fall out here.
           FILES=""
-          for f in ${{ inputs.FILES }}; do
+          for f in $TIDY_FILES; do
             case "$f" in *.cpp) ;; *) continue ;; esac
             [ -f "$f" ] || continue
             for s in ${{ inputs.SOURCES }}; do

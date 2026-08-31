@@ -17,6 +17,10 @@ inputs:
     required: false
     default: "x86_64"
     description: "Emulator architecture"
+  TARGET:
+    required: false
+    default: "default"
+    description: "Emulator system-image target (e.g. google_apis)"
   DEVICE_DIR:
     required: false
     default: "/data/local/tmp/tanh"
@@ -123,5 +127,7 @@ runs:
       with:
         api-level: ${{ inputs.API_LEVEL }}
         arch: ${{ inputs.ARCH }}
-        emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+        target: ${{ inputs.TARGET }}
+        emulator-options: -no-window -no-snapshot -no-audio -no-boot-anim -gpu swiftshader_indirect
+        disable-animations: true
         script: bash /tmp/tanh-android-test.sh

@@ -31,12 +31,16 @@ on:
         description: "ctest -LE regex applied on pull_request runs only (heavy suites run in the queue)"
         type: string
         default: ""
-      models_cache_key:
-        description: "actions/cache key for pre-fetched fixture trees; empty skips the restore"
+      models_cache_prefix:
+        description: "Cache-key prefix for pre-fetched fixture trees; the full key is <prefix>-hashFiles(models_hash_glob). Empty skips the restore. (hashFiles is step-scoped, so callers cannot compute the key themselves.)"
+        type: string
+        default: ""
+      models_hash_glob:
+        description: "File pattern hashed into the models cache key (e.g. the pin manifest)"
         type: string
         default: ""
       models_cache_paths:
-        description: "Newline-separated cache paths matching models_cache_key"
+        description: "Newline-separated cache paths matching the key"
         type: string
         default: ""
 
@@ -81,11 +85,11 @@ jobs:
           submodules: true
           fetch-depth: 0
       - name: restore the model fixtures
-        if: inputs.models_cache_key != ''
+        if: inputs.models_cache_prefix != ''
         uses: actions/cache/restore@v4
         with:
           path: ${{ inputs.models_cache_paths }}
-          key: ${{ inputs.models_cache_key }}
+          key: ${{ inputs.models_cache_prefix }}-${{ hashFiles(inputs.models_hash_glob) }}
           enableCrossOsArchive: true
       - name: setup build tools
         uses: tanh-lab/ci-actions/setup-cpp-build-tools@v0.3.0
@@ -118,7 +122,7 @@ jobs:
         run: |
           rc=0
           for t in "${{ matrix.dualarch }}"/test/test_*; do
-            [ -x "$t" ] || continue
+            [ -f "$t" ] && [ -x "$t" ] || continue
             arch -x86_64 "$t" --gtest_brief=1 || rc=1
           done
           exit $rc

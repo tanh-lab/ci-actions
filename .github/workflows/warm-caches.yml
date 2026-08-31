@@ -17,7 +17,10 @@ on:
         description: "JSON array of build-only legs"
         type: string
         required: true
-      models_cache_key:
+      models_cache_prefix:
+        type: string
+        default: ""
+      models_hash_glob:
         type: string
         default: ""
       models_cache_paths:
@@ -43,7 +46,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ inputs.models_cache_paths }}
-          key: ${{ inputs.models_cache_key }}
+          key: ${{ inputs.models_cache_prefix }}-${{ hashFiles(inputs.models_hash_glob) }}
           enableCrossOsArchive: true
       - name: fetch the pinned fixtures
         if: steps.models_cache.outputs.cache-hit != 'true'
@@ -65,11 +68,11 @@ jobs:
           submodules: true
           fetch-depth: 0
       - name: restore the model fixtures
-        if: inputs.models_cache_key != ''
+        if: inputs.models_cache_prefix != ''
         uses: actions/cache/restore@v4
         with:
           path: ${{ inputs.models_cache_paths }}
-          key: ${{ inputs.models_cache_key }}
+          key: ${{ inputs.models_cache_prefix }}-${{ hashFiles(inputs.models_hash_glob) }}
           enableCrossOsArchive: true
       - name: setup build tools
         uses: tanh-lab/ci-actions/setup-cpp-build-tools@v0.3.0

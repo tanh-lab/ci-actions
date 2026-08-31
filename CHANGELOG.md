@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [Unreleased]
+
+### Added
+
+- `clang-tidy-check` gains an optional `FILES` input for diff-based runs: pass
+  a changed-files list (e.g. a PR's) and only the entries inside the `SOURCES`
+  scope are analysed — an empty intersection passes. Full-sweep behavior when
+  omitted is unchanged. A full anira sweep is ~6 min of analysis; most PRs
+  touch a handful of files.
+
 ## [0.1.0] - 2026-08-31
 
 First tagged release — the baseline consumers pin. Contains the seven actions

@@ -12,6 +12,10 @@ inputs:
   PRESET:
     required: false
     description: "CMake preset name. If set, derives the build directory from the preset's binaryDir."
+  FILES:
+    required: false
+    default: ""
+    description: "Optional explicit file list (space/newline-separated), e.g. a PR's changed files: only entries inside the SOURCES scope that end in .cpp and still exist are checked, and an empty result passes. Omit to check everything under SOURCES."
 
 runs:
   using: "composite"
@@ -47,7 +51,24 @@ runs:
         echo "Build directory: ${{ steps.builddir.outputs.BUILD_DIR }}"
         echo "Using clang-tidy: $(clang-tidy --version)"
         NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
-        FILES=$(find ${{ inputs.SOURCES }} -name '*.cpp' -type f)
+        if [ -n "${{ inputs.FILES }}" ]; then
+          # Diff mode: intersect the given list with the SOURCES scope, so a
+          # caller can pass a raw changed-files list — PRs check only what they
+          # touch, the full sweep stays on push/nightly runs. Deleted files and
+          # anything outside SOURCES fall out here.
+          FILES=""
+          for f in ${{ inputs.FILES }}; do
+            case "$f" in *.cpp) ;; *) continue ;; esac
+            [ -f "$f" ] || continue
+            for s in ${{ inputs.SOURCES }}; do
+              case "$f" in $s|$s*) FILES="${FILES}${f}"$'\n'; break ;; esac
+            done
+          done
+          FILES=$(printf '%s' "$FILES" | sort -u)
+          echo "Diff mode: checking only the listed files inside the SOURCES scope."
+        else
+          FILES=$(find ${{ inputs.SOURCES }} -name '*.cpp' -type f)
+        fi
         if [ -z "$FILES" ]; then
           echo "No source files found."
           exit 0

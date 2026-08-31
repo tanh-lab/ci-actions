@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [0.3.5] - 2026-08-31
+
+### Fixed
+
+- `setup-cpp-build-tools` falls back to the runner OS for ANY `matrix.name`
+  without a platform prefix, not just an empty one — tanh-lib's queue rejected
+  its first entry because sanitizer legs named per tool (`ASan-UBSan`, ...)
+  installed no toolchain, so RTSan built with the image's clang 18
+  (no `-fsanitize=realtime`) and clang-format ran unpinned.
+
 ## [0.3.4] - 2026-08-31
 
 ### Added

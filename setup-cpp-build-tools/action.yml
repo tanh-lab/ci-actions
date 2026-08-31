@@ -21,9 +21,14 @@ runs:
     - name: install deps
       shell: bash
       run: |
-        # Jobs without a matrix fall back to the runner OS (Linux/macOS/Windows).
+        # Jobs without a matrix, or with leg names that carry no platform
+        # prefix (e.g. sanitizer legs named per tool), fall back to the runner
+        # OS (Linux/macOS/Windows). iOS/Android legs must keep their prefix.
         NAME="${{ matrix.name }}"
-        [ -n "$NAME" ] || NAME="${{ runner.os }}"
+        case "$NAME" in
+          Linux*|macOS*|Windows*|iOS*|Android*) ;;
+          *) NAME="${{ runner.os }}";;
+        esac
         if [[ "$NAME" == Linux* ]]; then
           # Add LLVM apt repository for the requested clang version
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc

@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [0.3.6] - 2026-09-01
+
+### Fixed
+
+- Reusable `coverage`: install the llvm tools matching the clang that built
+  the binaries — clang 20 emits profraw version 10, which the distro default
+  `llvm-profdata` rejects. (Previously masked: the toolchain pin silently
+  installed nothing for matrix-less callers, so coverage built with the
+  image's clang 18 by accident; the v0.3.5 fallback made the pin real and
+  exposed the skew.) Internal refs bumped, including the ones v0.3.5 missed.
+
 ## [0.3.5] - 2026-08-31
 
 ### Fixed

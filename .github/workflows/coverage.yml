@@ -69,17 +69,22 @@ jobs:
           key: ${{ inputs.models_cache_prefix }}-${{ hashFiles(inputs.models_hash_glob) }}
           enableCrossOsArchive: true
       - name: setup build tools
-        uses: tanh-lab/ci-actions/setup-cpp-build-tools@v0.3.4
-      # llvm-profdata/llvm-cov matching the default clang major.
-      - name: install llvm tools
-        run: sudo apt-get update && sudo apt-get install -y llvm
+        uses: tanh-lab/ci-actions/setup-cpp-build-tools@v0.3.6
+      # llvm-profdata/llvm-cov MUST match the clang that built the binaries —
+      # a newer clang's .profraw format is unreadable by older tools (the
+      # distro default llvm rejects clang 20's version-10 profiles).
+      - name: install llvm tools matching clang
+        run: |
+          VER=$(clang --version | sed -nE 's/.*clang version ([0-9]+).*/\1/p' | head -1)
+          sudo apt-get update && sudo apt-get install -y "llvm-${VER}"
+          echo "LLVM_VER=${VER}" >> "$GITHUB_ENV"
       - name: build
-        uses: tanh-lab/ci-actions/cmake-build@v0.3.4
+        uses: tanh-lab/ci-actions/cmake-build@v0.3.6
         with:
           PRESET: ${{ inputs.preset }}
           CMAKE_BUILD_ARGS: ${{ inputs.build_args }}
       - name: test
-        uses: tanh-lab/ci-actions/cmake-test@v0.3.4
+        uses: tanh-lab/ci-actions/cmake-test@v0.3.6
         with:
           PRESET: ${{ inputs.preset }}
       - name: export lcov
@@ -113,7 +118,7 @@ jobs:
           print(found.replace('\${sourceDir}', '.'))
           ")
           echo "Build directory: $BUILD"
-          llvm-profdata merge -sparse profraw/*.profraw -o merged.profdata
+          llvm-profdata-${LLVM_VER} merge -sparse profraw/*.profraw -o merged.profdata
           mapfile -t OBJECTS < <(
             find "$BUILD" -name "$LIB_PATTERN" -type f
             find "$BUILD"/test -maxdepth 2 -name 'test_*' -type f -perm -u+x
@@ -122,7 +127,7 @@ jobs:
           FIRST="${OBJECTS[0]}"
           REST=()
           for o in "${OBJECTS[@]:1}"; do REST+=(-object "$o"); done
-          llvm-cov export -format=lcov -instr-profile merged.profdata \
+          llvm-cov-${LLVM_VER} export -format=lcov -instr-profile merged.profdata \
             -ignore-filename-regex="$IGNORE_REGEX" \
             "$FIRST" "${REST[@]}" > coverage.lcov
           wc -l coverage.lcov

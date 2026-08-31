@@ -6,6 +6,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [0.3.0] - 2026-08-31
+
+### Added
+
+- Reusable workflows `.github/workflows/{build-test,warm-caches}.yml`: the
+  desktop build+test pipeline (tiered matrix from a caller-side JSON, presets,
+  vcvars, configure-log assertions, fast-test label exclusion on PRs, the
+  Rosetta dual-arch pass, the `build_test result` aggregate) and the
+  push-to-main cache warmer — callers keep only their facts. Release rule: the
+  internal `@vX.Y.Z` action refs inside these workflows are bumped as part of
+  tagging.
+- `cmake-build-wasm`: configure + build a CMake preset under a pinned
+  Emscripten SDK. The `EMSDK_VERSION` default is the shared tanh-lab pin —
+  bumping it here moves every consumer together. A composite (not a reusable
+  workflow) so consumers can append same-job steps over the emitted wasm.
+- `cmake-test-android` gains `DEVICE_DIR`, `EXTRA_PUSH_PATHS` (shared
+  libraries, model trees, `libc++_shared.so`) and `RUN_ENV` (e.g.
+  `LD_LIBRARY_PATH=...`) inputs.
+
+### Changed
+
+- **Breaking:** `cmake-test-android` stages into `DEVICE_DIR` via a generated
+  script, asserts device-side exit codes through an echoed marker instead of
+  grepping gtest's `[  PASSED  ]`, and collects per-binary failures instead of
+  stopping at the first. Consumers pinned to earlier tags are unaffected until
+  they bump.
+
+### Fixed
+
+- Both mobile test actions resolve a preset's `binaryDir` through `inherits`
+  (a preset without its own key no longer breaks discovery).
+
 ## [0.2.2] - 2026-08-31
 
 ### Fixed

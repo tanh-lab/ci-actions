@@ -4,7 +4,7 @@ description: "Boot an Android emulator and run native test binaries"
 inputs:
   PRESET:
     required: true
-    description: "CMake configure preset name (used to locate the build directory)"
+    description: "CMake configure preset name (used to locate the build directory; `inherits` is resolved)"
   TEST_BINARIES:
     required: false
     default: ""
@@ -17,6 +17,22 @@ inputs:
     required: false
     default: "x86_64"
     description: "Emulator architecture"
+  TARGET:
+    required: false
+    default: "default"
+    description: "Emulator system-image target (e.g. google_apis)"
+  DEVICE_DIR:
+    required: false
+    default: "/data/local/tmp/tanh"
+    description: "Staging directory on the device; binaries and EXTRA_PUSH_PATHS land here"
+  EXTRA_PUSH_PATHS:
+    required: false
+    default: ""
+    description: "Newline-separated host files/directories pushed into DEVICE_DIR before the run (shared libraries, model trees, libc++_shared.so, ...). Missing paths are skipped with a note."
+  RUN_ENV:
+    required: false
+    default: ""
+    description: "Environment prefix for each test invocation, e.g. 'LD_LIBRARY_PATH=/data/local/tmp/tanh'"
 
 runs:
   using: "composite"
@@ -28,21 +44,39 @@ runs:
         sudo udevadm control --reload-rules
         sudo udevadm trigger --name-match=kvm
 
-    - name: Resolve build directory and collect binaries
+    - name: Resolve build directory and stage the run script
       id: resolve
       shell: bash
+      env:
+        EXTRA_PUSH_PATHS: ${{ inputs.EXTRA_PUSH_PATHS }}
+        RUN_ENV: ${{ inputs.RUN_ENV }}
+        DEVICE_DIR: ${{ inputs.DEVICE_DIR }}
       run: |
         BUILD_DIR=$(python3 -c "
         import json, sys
+
         with open('CMakePresets.json') as f:
-            presets = json.load(f)
-        for p in presets.get('configurePresets', []):
-            if p['name'] == '${{ inputs.PRESET }}':
-                print(p['binaryDir'].replace('\${sourceDir}', '.'))
-                sys.exit(0)
-        sys.exit(1)
+            presets = json.load(f)['configurePresets']
+
+        def binary_dir(name):
+            for p in presets:
+                if p['name'] == name:
+                    if 'binaryDir' in p:
+                        return p['binaryDir']
+                    inherits = p.get('inherits', [])
+                    if isinstance(inherits, str):
+                        inherits = [inherits]
+                    for parent in inherits:
+                        found = binary_dir(parent)
+                        if found:
+                            return found
+            return None
+
+        found = binary_dir('${{ inputs.PRESET }}')
+        if not found:
+            sys.exit(1)
+        print(found.replace('\${sourceDir}', '.'))
         ")
-        echo "build_dir=$BUILD_DIR" >> "$GITHUB_OUTPUT"
         echo "Build directory: $BUILD_DIR"
 
         BINARIES="${{ inputs.TEST_BINARIES }}"
@@ -52,39 +86,48 @@ runs:
             | while read f; do file "$f" | grep -q ELF && basename "$f"; done \
             | sort | tr '\n' ' ')
         fi
-
         if [ -z "$BINARIES" ]; then
           echo "ERROR: No test binaries found in $BUILD_DIR/test"
           exit 1
         fi
-
-        echo "binaries=$BINARIES" >> "$GITHUB_OUTPUT"
         echo "Test binaries: $BINARIES"
 
-        # Generate flat script for emulator-runner (it runs each line as separate sh -c)
-        SCRIPT=""
-        for binary in $BINARIES; do
-          BINARY_PATH=$(find "$BUILD_DIR/test" -name "$binary" -type f | head -1)
-          SCRIPT="${SCRIPT}adb push ${BINARY_PATH} /data/local/tmp/
-        adb shell chmod +x /data/local/tmp/${binary}
-        "
-        done
-        for binary in $BINARIES; do
-          SCRIPT="${SCRIPT}echo '=== ${binary} ===' && adb shell /data/local/tmp/${binary} 2>&1 | tee /tmp/${binary}.txt && grep -q '\[  PASSED  \]' /tmp/${binary}.txt
-        "
-        done
-
-        # Write multiline output
+        # One committed script the emulator-runner invokes as a single line
+        # (it executes each inline line in its own shell). Staging, env and
+        # marker-based exit codes live here; failures are collected so one run
+        # reports every broken suite.
         {
-          echo "script<<SCRIPT_EOF"
-          echo "$SCRIPT"
-          echo "SCRIPT_EOF"
-        } >> "$GITHUB_OUTPUT"
+          echo 'set -u'
+          echo "DEV='$DEVICE_DIR'"
+          echo 'adb shell "rm -rf $DEV && mkdir -p $DEV"'
+          for b in $BINARIES; do
+            p=$(find "$BUILD_DIR/test" -name "$b" -type f | head -1)
+            echo "adb push '$p' \"\$DEV/$b\""
+            echo "adb shell \"chmod 755 \$DEV/$b\""
+          done
+          if [ -n "$EXTRA_PUSH_PATHS" ]; then
+            printf '%s\n' "$EXTRA_PUSH_PATHS" | while IFS= read -r path; do
+              [ -n "$path" ] || continue
+              echo "if [ -e '$path' ]; then adb push '$path' \"\$DEV/\"; else echo 'skipping missing extra path: $path'; fi"
+            done
+          fi
+          echo 'FAILED=0'
+          for b in $BINARIES; do
+            # adb shell does not propagate exit codes, hence the echoed marker.
+            echo "adb shell \"cd \$DEV && $RUN_ENV ./$b --gtest_brief=1; echo TANH_EXIT=\\\$?\" | tee \"/tmp/out_$b.txt\""
+            echo "grep -q 'TANH_EXIT=0' \"/tmp/out_$b.txt\" || { echo \"FAILED: $b\"; FAILED=1; }"
+          done
+          echo 'exit $FAILED'
+        } > /tmp/tanh-android-test.sh
+        echo "--- staged run script:"
+        cat /tmp/tanh-android-test.sh
 
     - name: Run tests on Android emulator
       uses: reactivecircus/android-emulator-runner@v2
       with:
         api-level: ${{ inputs.API_LEVEL }}
         arch: ${{ inputs.ARCH }}
-        emulator-options: -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
-        script: ${{ steps.resolve.outputs.script }}
+        target: ${{ inputs.TARGET }}
+        emulator-options: -no-window -no-snapshot -no-audio -no-boot-anim -gpu swiftshader_indirect
+        disable-animations: true
+        script: bash /tmp/tanh-android-test.sh

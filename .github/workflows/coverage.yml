@@ -26,17 +26,21 @@ on:
         type: string
         default: "(^|/)(build|modules|extras|test|examples|_deps)/"
       models_cache_prefix:
+        description: "Cache-key prefix for pre-fetched fixture trees; the full key is <prefix>-hashFiles(models_hash_glob). Empty skips the restore. (hashFiles is step-scoped, so callers cannot compute the key themselves.)"
         type: string
         default: ""
       models_hash_glob:
+        description: "File pattern hashed into the models cache key"
         type: string
         default: ""
       models_cache_paths:
+        description: "Newline-separated cache paths matching the key"
         type: string
         default: ""
 
 env:
   SCCACHE_GHA_ENABLED: "true"
+  # Without this, sccache speaks the retired v1 cache API and every write fails.
   ACTIONS_CACHE_SERVICE_V2: "on"
 
 jobs:
@@ -65,17 +69,17 @@ jobs:
           key: ${{ inputs.models_cache_prefix }}-${{ hashFiles(inputs.models_hash_glob) }}
           enableCrossOsArchive: true
       - name: setup build tools
-        uses: tanh-lab/ci-actions/setup-cpp-build-tools@v0.3.2
+        uses: tanh-lab/ci-actions/setup-cpp-build-tools@v0.3.3
       # llvm-profdata/llvm-cov matching the default clang major.
       - name: install llvm tools
         run: sudo apt-get update && sudo apt-get install -y llvm
       - name: build
-        uses: tanh-lab/ci-actions/cmake-build@v0.3.2
+        uses: tanh-lab/ci-actions/cmake-build@v0.3.3
         with:
           PRESET: ${{ inputs.preset }}
           CMAKE_BUILD_ARGS: ${{ inputs.build_args }}
       - name: test
-        uses: tanh-lab/ci-actions/cmake-test@v0.3.2
+        uses: tanh-lab/ci-actions/cmake-test@v0.3.3
         with:
           PRESET: ${{ inputs.preset }}
       - name: export lcov
@@ -103,7 +107,10 @@ jobs:
                               return found
               return None
 
-          print(binary_dir('${{ inputs.preset }}').replace('\${sourceDir}', '.'))
+          found = binary_dir('${{ inputs.preset }}')
+          if not found:
+              raise SystemExit('no binaryDir found for preset ${{ inputs.preset }}')
+          print(found.replace('\${sourceDir}', '.'))
           ")
           echo "Build directory: $BUILD"
           llvm-profdata merge -sparse profraw/*.profraw -o merged.profdata

@@ -27,16 +27,27 @@ runs:
         if [ -n "${{ inputs.PRESET }}" ]; then
           # Extract binaryDir from CMakePresets.json for the given preset
           BINARY_DIR=$(python3 -c "
-        import json, sys
+        import json
+
         with open('CMakePresets.json') as f:
-            data = json.load(f)
-        for p in data.get('configurePresets', []):
-            if p['name'] == '${{ inputs.PRESET }}':
-                bd = p.get('binaryDir', 'build')
-                bd = bd.replace('\${sourceDir}/', '').replace('\${sourceDir}', '.')
-                print(bd)
-                sys.exit(0)
-        print('build')
+            presets = json.load(f)['configurePresets']
+
+        def binary_dir(name):
+            for p in presets:
+                if p['name'] == name:
+                    if 'binaryDir' in p:
+                        return p['binaryDir']
+                    inherits = p.get('inherits', [])
+                    if isinstance(inherits, str):
+                        inherits = [inherits]
+                    for parent in inherits:
+                        found = binary_dir(parent)
+                        if found:
+                            return found
+            return None
+
+        found = binary_dir('${{ inputs.PRESET }}') or 'build'
+        print(found.replace('\${sourceDir}/', '').replace('\${sourceDir}', '.'))
         ")
           echo "BUILD_DIR=${BINARY_DIR}" >> $GITHUB_OUTPUT
         else

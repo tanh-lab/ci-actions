@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [0.3.3] - 2026-08-31
+
+### Changed
+
+- Reusable `build-test`: the Rosetta dual-arch step fails on an empty glob
+  (it is a leg's only x86_64 run — a binaryDir rename must not turn it into a
+  green no-op), and `assert_grep` is asserted with `grep -F`, matching its
+  documented "literal" contract.
+- The preset-to-binaryDir resolver is one canonical inherits-aware parser in
+  all four call sites (`cmake-test-android`, `cmake-test-ios-simulator`, the
+  reusable `coverage`, `clang-tidy-check` — the last previously ignored
+  `inherits` and silently fell back to `build`).
+
 ## [0.3.2] - 2026-08-31
 
 ### Added

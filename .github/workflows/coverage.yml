@@ -1,0 +1,127 @@
+name: coverage
+
+# Reusable full-suite coverage leg: build a preset instrumented for clang
+# source-based coverage (the caller's preset carries the flags), run the whole
+# suite, export lcov over the shared libraries + test binaries, upload to
+# Codecov via tokenless OIDC (the Codecov GitHub App must be installed on the
+# caller's org). The codecov-action pin lives here once, by SHA.
+
+on:
+  workflow_call:
+    inputs:
+      preset:
+        description: "Instrumented CMake configure/build/test preset"
+        type: string
+        required: true
+      build_args:
+        description: "Extra configure args appended in preset mode"
+        type: string
+        default: ""
+      lib_pattern:
+        description: "find -name pattern for the instrumented shared libraries (e.g. 'libanira.so*')"
+        type: string
+        required: true
+      ignore_regex:
+        description: "llvm-cov -ignore-filename-regex for fetched/generated code"
+        type: string
+        default: "(^|/)(build|modules|extras|test|examples|_deps)/"
+      models_cache_prefix:
+        type: string
+        default: ""
+      models_hash_glob:
+        type: string
+        default: ""
+      models_cache_paths:
+        type: string
+        default: ""
+
+env:
+  SCCACHE_GHA_ENABLED: "true"
+  ACTIONS_CACHE_SERVICE_V2: "on"
+
+jobs:
+  coverage:
+    name: coverage
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Codecov's tokenless OIDC upload
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      # One .profraw per test process (%p), merged below; workspace-anchored so
+      # the path needs no knowledge of the preset's binaryDir.
+      LLVM_PROFILE_FILE: ${{ github.workspace }}/profraw/%p.profraw
+    steps:
+      - name: get repo and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+      - name: restore the model fixtures
+        if: inputs.models_cache_prefix != ''
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ inputs.models_cache_paths }}
+          key: ${{ inputs.models_cache_prefix }}-${{ hashFiles(inputs.models_hash_glob) }}
+          enableCrossOsArchive: true
+      - name: setup build tools
+        uses: tanh-lab/ci-actions/setup-cpp-build-tools@v0.3.2
+      # llvm-profdata/llvm-cov matching the default clang major.
+      - name: install llvm tools
+        run: sudo apt-get update && sudo apt-get install -y llvm
+      - name: build
+        uses: tanh-lab/ci-actions/cmake-build@v0.3.2
+        with:
+          PRESET: ${{ inputs.preset }}
+          CMAKE_BUILD_ARGS: ${{ inputs.build_args }}
+      - name: test
+        uses: tanh-lab/ci-actions/cmake-test@v0.3.2
+        with:
+          PRESET: ${{ inputs.preset }}
+      - name: export lcov
+        env:
+          LIB_PATTERN: ${{ inputs.lib_pattern }}
+          IGNORE_REGEX: ${{ inputs.ignore_regex }}
+        run: |
+          BUILD=$(python3 -c "
+          import json
+
+          with open('CMakePresets.json') as f:
+              presets = json.load(f)['configurePresets']
+
+          def binary_dir(name):
+              for p in presets:
+                  if p['name'] == name:
+                      if 'binaryDir' in p:
+                          return p['binaryDir']
+                      inherits = p.get('inherits', [])
+                      if isinstance(inherits, str):
+                          inherits = [inherits]
+                      for parent in inherits:
+                          found = binary_dir(parent)
+                          if found:
+                              return found
+              return None
+
+          print(binary_dir('${{ inputs.preset }}').replace('\${sourceDir}', '.'))
+          ")
+          echo "Build directory: $BUILD"
+          llvm-profdata merge -sparse profraw/*.profraw -o merged.profdata
+          mapfile -t OBJECTS < <(
+            find "$BUILD" -name "$LIB_PATTERN" -type f
+            find "$BUILD"/test -maxdepth 2 -name 'test_*' -type f -perm -u+x
+          )
+          printf 'object: %s\n' "${OBJECTS[@]}"
+          FIRST="${OBJECTS[0]}"
+          REST=()
+          for o in "${OBJECTS[@]:1}"; do REST+=(-object "$o"); done
+          llvm-cov export -format=lcov -instr-profile merged.profdata \
+            -ignore-filename-regex="$IGNORE_REGEX" \
+            "$FIRST" "${REST[@]}" > coverage.lcov
+          wc -l coverage.lcov
+      - name: upload to Codecov
+        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5
+        with:
+          use_oidc: true
+          files: coverage.lcov
+          fail_ci_if_error: true

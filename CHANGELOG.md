@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [0.3.2] - 2026-08-31
+
+### Added
+
+- Reusable `coverage` workflow: build an instrumented preset, run the full
+  suite, `llvm-cov` -> lcov over the shared libraries (`lib_pattern`) + test
+  binaries, upload to Codecov via tokenless OIDC (the Codecov GitHub App must
+  be installed on the caller's org; the codecov-action SHA pin lives here).
+
 ## [0.3.1] - 2026-08-31
 
 ### Added

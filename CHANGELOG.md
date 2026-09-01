@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [0.3.9] - 2026-09-01
+
+### Added
+
+- `build-test.yml`: `fast_exclude_tests` input — a ctest `-E` test-name regex
+  applied on pull_request runs only, for repos that declare queue-only tests in
+  the test name (anira's `SlowTest|_Slow` convention) instead of maintaining a
+  label layer. Composes with `fast_exclude_labels`; both default off.
+
 ## [0.3.8] - 2026-09-01
 
 ### Added

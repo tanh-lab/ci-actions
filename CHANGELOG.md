@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [0.3.8] - 2026-09-01
+
+### Added
+
+- `build-sanitizer.yml`: the reusable sanitizer build+test workflow both
+  libraries duplicated — a caller-side matrix of `{ name, preset, models? }`
+  rows over the sanitizer presets, with the fixture-cache restore opt-in per row
+  (a leg that builds no backends needs no model trees, and the restore is the
+  most expensive step in the job). Replaces anira's `build_sanitizer.yml` job
+  blocks and tanh-lib's `sanitizers.yml` matrix; both shrink to their triggers
+  and a matrix file.
+- The workflow sets `UBSAN_OPTIONS`, `ASAN_OPTIONS` and `TSAN_OPTIONS` on every
+  leg, overridable per caller. `UBSAN_OPTIONS=halt_on_error=1` is the reason
+  this is centralised: UBSan defaults to print-and-continue, so both repos'
+  previous UBSan legs could not fail — a diagnosed undefined behaviour scrolled
+  past and the job still reported success. `asan_options` defaults to
+  `detect_leaks=1`, which a macOS caller must clear (LSan does not exist on
+  Darwin and ASan aborts when asked for it).
+- `clang_version` input, default `20`: `-fsanitize=realtime` requires it, so any
+  matrix with an RTSan leg needs that floor. tanh-lib's previous local copy
+  pinned no version.
+
 ## [0.3.7] - 2026-09-01
 
 ### Added

@@ -1,0 +1,61 @@
+name: install-consume-check
+description: "Build and run an external consumer project against an installed prefix"
+
+# The install-tree completeness check both tanh-lab libraries run: configure a
+# minimal external project against CMAKE_PREFIX_PATH, build it, run its
+# binaries. On Windows the prefix's bin/ is prepended to PATH for the run (DLLs
+# live there); with a multi-config generator the binaries sit under <config>/.
+# Anything repo-specific beyond running binaries (e.g. symbol-table scans)
+# stays a caller step after this one.
+
+inputs:
+  PREFIX:
+    required: true
+    description: "The install prefix the consumer resolves packages from"
+  CONSUMER_DIR:
+    required: true
+    description: "Source dir of the consumer project (e.g. test/install)"
+  BINARIES:
+    required: true
+    description: "Space-separated consumer binaries to run"
+  GENERATOR:
+    required: false
+    default: ""
+    description: "CMake generator (empty = platform default; a multi-config default means <config>/ subdirs)"
+  CMAKE_ARGS:
+    required: false
+    default: ""
+    description: "Extra configure arguments"
+  BUILD_DIR:
+    required: false
+    default: "build-consumer"
+    description: "Consumer build directory"
+
+runs:
+  using: "composite"
+  steps:
+    - name: build and run the consumer
+      shell: bash
+      env:
+        ICC_PREFIX: ${{ inputs.PREFIX }}
+        ICC_BUILD_DIR: ${{ inputs.BUILD_DIR }}
+      run: |
+        set -euo pipefail
+        GEN=()
+        [ -n "${{ inputs.GENERATOR }}" ] && GEN=(-G "${{ inputs.GENERATOR }}")
+        cmake -S "${{ inputs.CONSUMER_DIR }}" -B "$ICC_BUILD_DIR" "${GEN[@]}" \
+          -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$ICC_PREFIX" ${{ inputs.CMAKE_ARGS }}
+        cmake --build "$ICC_BUILD_DIR" --config Release --parallel
+        SUBDIR=""
+        if [[ "$RUNNER_OS" == "Windows" && -d "$ICC_BUILD_DIR/Release" ]]; then
+          SUBDIR="Release/"
+        fi
+        for b in ${{ inputs.BINARIES }}; do
+          BIN="$ICC_BUILD_DIR/${SUBDIR}${b}"
+          [[ "$RUNNER_OS" == "Windows" ]] && BIN="${BIN}.exe"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            PATH="$ICC_PREFIX/bin:$PATH" "./$BIN"
+          else
+            "./$BIN"
+          fi
+        done

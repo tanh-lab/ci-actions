@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [0.3.7] - 2026-09-01
+
+### Added
+
+- `install-consume-check`: the install-tree completeness check both libraries
+  duplicated inline — configure an external consumer against an installed
+  prefix, build it, run its binaries (Windows: prefix bin/ on PATH, config
+  subdir under a multi-config generator). Repo-specific extras (symbol scans)
+  stay caller steps.
+
 ## [0.3.6] - 2026-09-01
 
 ### Fixed

@@ -111,14 +111,14 @@ jobs:
         shell: bash
         run: echo "models cache MISS — the configure fetches the pins itself" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: setup build tools
-        uses: tanh-lab/ci-actions/setup-cpp-build-tools@v0.3.8
+        uses: tanh-lab/ci-actions/setup-cpp-build-tools@v0.3.9
         with:
           CLANG_VERSION: ${{ inputs.clang_version }}
       - name: build
-        uses: tanh-lab/ci-actions/cmake-build@v0.3.8
+        uses: tanh-lab/ci-actions/cmake-build@v0.3.9
         with:
           PRESET: ${{ matrix.preset }}
       - name: test
-        uses: tanh-lab/ci-actions/cmake-test@v0.3.8
+        uses: tanh-lab/ci-actions/cmake-test@v0.3.9
         with:
           PRESET: ${{ matrix.preset }}

@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [0.3.10] - 2026-09-02
+
+### Removed
+
+- `build-test.yml`: the `fast_exclude_labels` and `fast_exclude_tests` inputs
+  and their `CTEST_ARGS` plumbing. No consumer passes either — anira's pull
+  requests run the full suite on every leg, and tanh-lib never filtered — so
+  the test-selection knob goes entirely: every leg runs plain `ctest`. If a
+  genuinely heavy suite ever appears, add the mechanism back with the numbers
+  that justify it.
+
 ## [0.3.9] - 2026-09-01
 
 ### Added

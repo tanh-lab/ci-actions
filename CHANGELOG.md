@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [0.3.14] - 2026-09-20
+
+### Fixed
+
+- `coverage.yml`: one invalid `.profraw` no longer takes the whole metric down.
+  `LLVM_PROFILE_FILE` is set for the whole job, so every instrumented process
+  writes a profile, the ones the configure and the build run included, and a
+  process that dies while writing leaves a file `llvm-profdata` rejects
+  (`invalid instrumentation profile data (file header is corrupt)`). The single
+  `merge` over `profraw/*.profraw` failed on it with `no profile can be merged`
+  although every test had passed. The step now prints the profile directory
+  (count, size, the five smallest files), validates each profile, reports an
+  invalid one as a warning with its size and write time (which place the process
+  in the job's timeline), tolerates one, and merges the valid ones. Two or more
+  invalid profiles, or no valid one, still fail the step. Seen on anira's
+  `static-executorch` leg, three runs of five: every leg there has one 248-byte,
+  header-only profile, written by the small `anira_abi_layout` gate executable
+  during the test step, and the failing runs lost a race on that file.
+
 ## [0.3.13] - 2026-09-20
 
 ### Added

@@ -118,7 +118,40 @@ jobs:
           print(found.replace('\${sourceDir}', '.'))
           ")
           echo "Build directory: $BUILD"
-          llvm-profdata-${LLVM_VER} merge -sparse profraw/*.profraw -o merged.profdata
+          # LLVM_PROFILE_FILE is set for the whole job, so every instrumented
+          # process writes a profile, the ones the configure and the build run
+          # included, and one that dies while writing leaves a file llvm-profdata
+          # rejects. `merge` over all of them fails on the first such file and
+          # takes the whole metric with it, so: validate each, report what is
+          # invalid (its size and write time place the process in the job's
+          # timeline), tolerate one, merge the valid ones.
+          mapfile -t PROFILES < <(find profraw -name '*.profraw' -type f | sort)
+          echo "profile directory: ${#PROFILES[@]} files, $(du -sh profraw | cut -f1)"
+          echo "the five smallest:"
+          find profraw -name '*.profraw' -type f -printf '%s bytes  %TT  %p\n' | sort -n | head -5
+          VALID=()
+          INVALID=()
+          for f in "${PROFILES[@]}"; do
+            if llvm-profdata-${LLVM_VER} show "$f" > /dev/null 2>&1; then
+              VALID+=("$f")
+            else
+              INVALID+=("$f")
+            fi
+          done
+          for f in "${INVALID[@]}"; do
+            echo "::warning::invalid profile $f ($(stat -c '%s bytes, written %y' "$f")): $(llvm-profdata-${LLVM_VER} show "$f" 2>&1 | head -1)"
+          done
+          echo "valid: ${#VALID[@]}, invalid: ${#INVALID[@]}"
+          if [ "${#INVALID[@]}" -gt 1 ]; then
+            echo "::error::${#INVALID[@]} invalid profiles; one is tolerated (a process that died while writing), more is a broken run"
+            exit 1
+          fi
+          if [ "${#VALID[@]}" -eq 0 ]; then
+            echo "::error::no valid profile to merge"
+            exit 1
+          fi
+          printf '%s\n' "${VALID[@]}" > profraw.list
+          llvm-profdata-${LLVM_VER} merge -sparse -input-files=profraw.list -o merged.profdata
           mapfile -t OBJECTS < <(
             find "$BUILD" -name "$LIB_PATTERN" -type f
             find "$BUILD"/test -maxdepth 2 -name 'test_*' -type f -perm -u+x

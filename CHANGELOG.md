@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [0.3.13] - 2026-09-20
+
+### Added
+
+- `changed-files`: the files a pull request changes, read from git (the merge
+  commit `actions/checkout` leaves on a pull_request event, diffed against its
+  first parent), so it needs no token and no API call; a depth-1 checkout is
+  deepened by one level. Outputs `files`, `sweep` and `reason`. `sweep` is
+  `true` for any other event, for a changed path matching
+  `FULL_SWEEP_PATTERN`, and for a checkout the diff cannot be read from: every
+  doubt resolves to the full check.
+- `clang-tidy-check`: `CHANGED_FILES_ONLY` and `FULL_SWEEP_PATTERN`. Opt-in: on
+  a pull_request event only the changed `.cpp` files inside `SOURCES` are
+  checked, and a pull request that changes none passes; every other event
+  sweeps as before (the merge queue; a `workflow_dispatch` run sweeps a branch
+  by hand). It runs the script of `changed-files` from the same checkout of
+  this repository, so there is no internal ref to bump. A non-empty `FILES`
+  still wins, and a caller that sets neither sees no change. Replaces the
+  inline changed-files step of anira's `clang_tidy.yml`, whose header rule sent
+  almost every pull request to the 20-minute sweep.
+
 ## [0.3.10] - 2026-09-02
 
 ### Removed

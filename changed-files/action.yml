@@ -1,0 +1,50 @@
+name: changed-files
+description: "List the files a pull request changes (from git, no token) and say whether a check should sweep everything instead"
+
+# The caller checks out the pull request's merge ref, which is what
+# actions/checkout does by default on a pull_request event. fetch-depth: 2 saves
+# one extra fetch; with the default depth of 1 the action fetches the missing
+# level itself through the credentials the checkout persisted.
+#
+# The label is read from the event payload, so it is the label set at trigger
+# time: a label added later is seen by the next push, or at once when the
+# workflow lists `labeled` among its pull_request types. A plain re-run replays
+# the old payload.
+
+inputs:
+  FULL_SWEEP_PATTERN:
+    required: false
+    default: ""
+    description: "Extended regex over the changed paths; a match sets sweep to true (e.g. a build or tool config change, after which every file may report differently). Empty: no path forces a sweep."
+  FULL_SWEEP_LABEL:
+    required: false
+    default: ""
+    description: "A pull request label that sets sweep to true. Empty: no label does."
+
+outputs:
+  files:
+    description: "The changed paths, newline-separated, deleted ones included; empty when sweep is true."
+    value: ${{ steps.select.outputs.files }}
+  sweep:
+    description: "'true' when the check should cover everything: not a pull_request event, the label, a path matching the pattern, or a checkout the diff cannot be read from. 'false' otherwise."
+    value: ${{ steps.select.outputs.sweep }}
+  reason:
+    description: "One line saying why: the sweep trigger, or the number of changed files."
+    value: ${{ steps.select.outputs.reason }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: list the changed files
+      id: select
+      shell: bash
+      env:
+        # Through the environment, not inline substitution: paths, patterns and
+        # label names are data, and the action path holds backslashes on Windows.
+        ACTION_PATH: ${{ github.action_path }}
+        CF_EVENT_NAME: ${{ github.event_name }}
+        CF_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        CF_SWEEP_PATTERN: ${{ inputs.FULL_SWEEP_PATTERN }}
+        CF_SWEEP_LABEL: ${{ inputs.FULL_SWEEP_LABEL }}
+        CF_LABEL_SET: ${{ inputs.FULL_SWEEP_LABEL != '' && contains(github.event.pull_request.labels.*.name, inputs.FULL_SWEEP_LABEL) }}
+      run: bash "$ACTION_PATH/changed-files.sh"

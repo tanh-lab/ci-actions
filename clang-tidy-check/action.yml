@@ -15,7 +15,19 @@ inputs:
   FILES:
     required: false
     default: ""
-    description: "Optional explicit file list (space/newline-separated), e.g. a PR's changed files: only entries inside the SOURCES scope that end in .cpp and still exist are checked, and an empty result passes. Omit to check everything under SOURCES."
+    description: "Optional explicit file list (space/newline-separated), e.g. a PR's changed files: only entries inside the SOURCES scope that end in .cpp and still exist are checked, and an empty result passes. Omit to check everything under SOURCES. A non-empty list wins over CHANGED_FILES_ONLY."
+  CHANGED_FILES_ONLY:
+    required: false
+    default: "false"
+    description: "'true': on a pull_request event check only the .cpp files the pull request changes (read from git, no token; see changed-files), a pull request that changes none passes. Every other event sweeps SOURCES, and so does any checkout the diff cannot be read from. A header change does not widen the set: what it breaks in an untouched file shows in the next sweep (the merge queue), so keep one."
+  FULL_SWEEP_PATTERN:
+    required: false
+    default: ""
+    description: "With CHANGED_FILES_ONLY: extended regex over the changed paths; a match sweeps SOURCES (e.g. '(^|/)CMakeLists\\.txt$|\\.cmake$|^CMakePresets\\.json$|^\\.clang-tidy$', after which every file may report differently)."
+  FULL_SWEEP_LABEL:
+    required: false
+    default: ""
+    description: "With CHANGED_FILES_ONLY: a pull request label that sweeps SOURCES (read from the event payload: seen by the next push, or at once when the workflow lists `labeled` among its pull_request types)."
 
 runs:
   using: "composite"
@@ -55,19 +67,46 @@ runs:
         fi
         echo "Using build directory: $(grep BUILD_DIR $GITHUB_OUTPUT)"
 
+    # The pull request's changed files, by the script the changed-files action
+    # runs: the runner unpacks the whole ci-actions repository at the pinned
+    # ref, so the sibling directory is there and both always run one commit's
+    # logic (no self-pin to bump). A missing script sweeps.
+    - name: select the pull request's changed files
+      id: changed
+      if: inputs.FILES == '' && inputs.CHANGED_FILES_ONLY == 'true'
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        CF_EVENT_NAME: ${{ github.event_name }}
+        CF_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        CF_SWEEP_PATTERN: ${{ inputs.FULL_SWEEP_PATTERN }}
+        CF_SWEEP_LABEL: ${{ inputs.FULL_SWEEP_LABEL }}
+        CF_LABEL_SET: ${{ inputs.FULL_SWEEP_LABEL != '' && contains(github.event.pull_request.labels.*.name, inputs.FULL_SWEEP_LABEL) }}
+      run: |
+        SCRIPT="$ACTION_PATH/../changed-files/changed-files.sh"
+        if [ -f "$SCRIPT" ]; then
+          bash "$SCRIPT"
+        else
+          echo "changed-files.sh is not beside this action - full sweep."
+          echo "sweep=true" >> "$GITHUB_OUTPUT"
+        fi
+
     - name: run clang-tidy
       shell: bash
       env:
         # Through the environment, not inline substitution: the list is
         # newline-separated, and inlining it into the script breaks the shell
         # syntax (and would be an injection vector).
-        TIDY_FILES: ${{ inputs.FILES }}
+        TIDY_FILES: ${{ inputs.FILES != '' && inputs.FILES || steps.changed.outputs.files }}
+        # 'list' checks TIDY_FILES and nothing else, an empty list included (a
+        # pull request without a .cpp change passes); 'sweep' checks SOURCES.
+        TIDY_MODE: ${{ (inputs.FILES != '' || steps.changed.outputs.sweep == 'false') && 'list' || 'sweep' }}
       run: |
         echo "Running clang-tidy on: ${{ inputs.SOURCES }}"
         echo "Build directory: ${{ steps.builddir.outputs.BUILD_DIR }}"
         echo "Using clang-tidy: $(clang-tidy --version)"
         NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
-        if [ -n "$TIDY_FILES" ]; then
+        if [ "$TIDY_MODE" = "list" ]; then
           # Diff mode: intersect the given list with the SOURCES scope, so a
           # caller can pass a raw changed-files list — PRs check only what they
           # touch, the full sweep stays on push/nightly runs. Deleted files and

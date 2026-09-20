@@ -19,15 +19,11 @@ inputs:
   CHANGED_FILES_ONLY:
     required: false
     default: "false"
-    description: "'true': on a pull_request event check only the .cpp files the pull request changes (read from git, no token; see changed-files), a pull request that changes none passes. Every other event sweeps SOURCES, and so does any checkout the diff cannot be read from. A header change does not widen the set: what it breaks in an untouched file shows in the next sweep (the merge queue), so keep one."
+    description: "'true': on a pull_request event check only the .cpp files the pull request changes (read from git, no token; see changed-files), a pull request that changes none passes. Every other event sweeps SOURCES (the merge queue; a workflow_dispatch run is the way to sweep a branch by hand), and so does any checkout the diff cannot be read from. A header change does not widen the set: what it breaks in an untouched file shows in the next sweep (the merge queue), so keep one."
   FULL_SWEEP_PATTERN:
     required: false
     default: ""
     description: "With CHANGED_FILES_ONLY: extended regex over the changed paths; a match sweeps SOURCES (e.g. '(^|/)CMakeLists\\.txt$|\\.cmake$|^CMakePresets\\.json$|^\\.clang-tidy$', after which every file may report differently)."
-  FULL_SWEEP_LABEL:
-    required: false
-    default: ""
-    description: "With CHANGED_FILES_ONLY: a pull request label that sweeps SOURCES (read from the event payload: seen by the next push, or at once when the workflow lists `labeled` among its pull_request types)."
 
 runs:
   using: "composite"
@@ -80,8 +76,6 @@ runs:
         CF_EVENT_NAME: ${{ github.event_name }}
         CF_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         CF_SWEEP_PATTERN: ${{ inputs.FULL_SWEEP_PATTERN }}
-        CF_SWEEP_LABEL: ${{ inputs.FULL_SWEEP_LABEL }}
-        CF_LABEL_SET: ${{ inputs.FULL_SWEEP_LABEL != '' && contains(github.event.pull_request.labels.*.name, inputs.FULL_SWEEP_LABEL) }}
       run: |
         SCRIPT="$ACTION_PATH/../changed-files/changed-files.sh"
         if [ -f "$SCRIPT" ]; then

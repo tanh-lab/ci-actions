@@ -8,15 +8,12 @@
 #
 # Every doubt resolves to a full sweep, the safe direction: another event, a
 # checkout that is not that merge commit, parents that cannot be fetched, a
-# label that asks for the sweep, a changed file that matches the sweep pattern,
-# a pattern grep rejects.
+# changed file that matches the sweep pattern, a pattern grep rejects.
 #
 # Environment:
 #   CF_EVENT_NAME     github.event_name
 #   CF_HEAD_SHA       github.event.pull_request.head.sha
 #   CF_SWEEP_PATTERN  extended regex; a changed file that matches forces the sweep (optional)
-#   CF_SWEEP_LABEL    the label's name, for the log (optional)
-#   CF_LABEL_SET      "true" when the pull request carries that label
 #   GITHUB_OUTPUT     receives files (newline-separated), sweep (true|false), reason
 set -u
 
@@ -38,7 +35,6 @@ sweep() {
 }
 
 [ "${CF_EVENT_NAME:-}" = "pull_request" ] || sweep "the event is '${CF_EVENT_NAME:-}', not pull_request"
-[ "${CF_LABEL_SET:-false}" != "true" ] || sweep "the pull request carries the label '${CF_SWEEP_LABEL:-}'"
 git rev-parse --is-inside-work-tree > /dev/null 2>&1 || sweep "the workspace is not a git checkout"
 
 # The default checkout has depth 1 and therefore no parents: fetch one more level of

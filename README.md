@@ -54,8 +54,9 @@ sweeps a branch by hand):
       SOURCES: "src/ test/"
       PRESET: desktop-debug
       CHANGED_FILES_ONLY: "true"
-      # A build or tool config change re-judges every file: sweep.
-      FULL_SWEEP_PATTERN: '(^|/)CMakeLists\.txt$|\.cmake$|^CMakePresets\.json$|^\.clang-tidy$'
+      # What changes tidy's own verdicts sweeps: the rule set, and the workflow
+      # that pins the tool.
+      FULL_SWEEP_PATTERN: '^\.clang-tidy$|^\.github/workflows/clang_tidy\.yml$'
 ```
 
 The list comes from git: on a pull_request event `actions/checkout` leaves HEAD
@@ -67,6 +68,11 @@ matching the pattern, a checkout that is not that merge commit.
 The trade: a header change does not widen the set, so what it breaks in a file
 the pull request did not touch shows in the next sweep, not on the pull request.
 Keep a sweeping run as the enforcement point (the merge queue).
+
+Keep `FULL_SWEEP_PATTERN` narrow. It meets the pull request's whole diff on every
+push, not the last push, so a path that many pull requests touch sweeps them for
+their whole life: with `CMakeLists.txt` in it, every pull request that adds a
+source file sweeps on every push (anira's first pattern did exactly that).
 
 `changed-files` is the same logic as its own action, for any other check:
 

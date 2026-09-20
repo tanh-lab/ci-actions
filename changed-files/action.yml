@@ -10,7 +10,7 @@ inputs:
   FULL_SWEEP_PATTERN:
     required: false
     default: ""
-    description: "Extended regex over the changed paths; a match sets sweep to true (e.g. a build or tool config change, after which every file may report differently). Empty: no path forces a sweep."
+    description: "Extended regex over the changed paths; a match sets sweep to true (e.g. the check's own config, after which every file may report differently). It meets the pull request's whole diff on every push, so keep it to paths few pull requests touch. Empty: no path forces a sweep."
 
 outputs:
   files:

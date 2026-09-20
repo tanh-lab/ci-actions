@@ -23,7 +23,7 @@ inputs:
   FULL_SWEEP_PATTERN:
     required: false
     default: ""
-    description: "With CHANGED_FILES_ONLY: extended regex over the changed paths; a match sweeps SOURCES (e.g. '(^|/)CMakeLists\\.txt$|\\.cmake$|^CMakePresets\\.json$|^\\.clang-tidy$', after which every file may report differently)."
+    description: "With CHANGED_FILES_ONLY: extended regex over the changed paths; a match sweeps SOURCES (e.g. '^\\.clang-tidy$', after which every file may report differently). Keep it narrow: it meets the pull request's whole diff on every push, so a path many pull requests touch (a CMakeLists.txt) sweeps them on every push."
 
 runs:
   using: "composite"

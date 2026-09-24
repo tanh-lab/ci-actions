@@ -84,7 +84,7 @@ jobs:
           PRESET: ${{ inputs.preset }}
           CMAKE_BUILD_ARGS: ${{ inputs.build_args }}
       - name: test
-        uses: tanh-lab/ci-actions/cmake-test@v0.3.12
+        uses: tanh-lab/ci-actions/cmake-test@v0.3.15
         with:
           PRESET: ${{ inputs.preset }}
       - name: export lcov

@@ -29,8 +29,14 @@ change here updates the consumers in the same motion.
   action now overrides that number with the runner's core count. Pass an explicit
   `CTEST_JOBS` to keep a cap, which is worth doing for sanitizer legs where
   memory, not cores, is the limit.
-- `build-test.yml`, `build-sanitizer.yml`, `coverage.yml`: pin `cmake-test` at
-  `v0.3.15` so the callers pick the new default up.
+- `cmake-build`: `CMAKE_BUILD_PARALLEL_LEVEL` now defaults to `auto` instead of
+  `4`, resolved the same way. The same argument applies as for the test job
+  count: `4` matched the 4-vCPU Linux and Windows runners, overshot the 3-vCPU
+  `macos-latest` ones, and could not follow a move to larger runners. An integer
+  still pins it, and an empty string drops `--parallel` entirely, leaving the
+  build tool's own default (ninja already uses cores + 2).
+- `build-test.yml`, `build-sanitizer.yml`, `coverage.yml`: pin `cmake-test` and
+  `cmake-build` at `v0.3.15` so the callers pick the new defaults up.
 
 ## [0.3.14] - 2026-09-20
 

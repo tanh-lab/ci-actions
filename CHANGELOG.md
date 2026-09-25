@@ -6,6 +6,38 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [0.3.15] - 2026-09-25
+
+### Changed
+
+- `cmake-test`: new `CTEST_JOBS` input, defaulting to `auto`, which detects the
+  runner's core count and passes it to ctest. Test parallelism is now a property
+  of the runner rather than a number pinned in each consumer's
+  `CMakePresets.json`: a preset integer caps a large runner and oversubscribes a
+  small one (GitHub's standard public runners are 4 vCPU on Linux and Windows but
+  3 vCPU on `macos-latest`), and it cannot follow a move to larger runners.
+  Consumers should drop `execution.jobs` from their test presets.
+
+  Precedence, which follows from ctest applying a preset's `execution.jobs` as if
+  it were on the command line and the last job flag winning: `CTEST_ARGS` beats
+  `CTEST_JOBS` beats the preset. Note that `CTEST_PARALLEL_LEVEL` is ignored
+  whenever any job count reaches the command line, so it takes effect only with
+  `CTEST_JOBS: ""`, which is the way to hand control back to the preset or the
+  environment.
+
+  Behaviour change for consumers whose presets still pin `execution.jobs`: the
+  action now overrides that number with the runner's core count. Pass an explicit
+  `CTEST_JOBS` to keep a cap, which is worth doing for sanitizer legs where
+  memory, not cores, is the limit.
+- `cmake-build`: `CMAKE_BUILD_PARALLEL_LEVEL` now defaults to `auto` instead of
+  `4`, resolved the same way. The same argument applies as for the test job
+  count: `4` matched the 4-vCPU Linux and Windows runners, overshot the 3-vCPU
+  `macos-latest` ones, and could not follow a move to larger runners. An integer
+  still pins it, and an empty string drops `--parallel` entirely, leaving the
+  build tool's own default (ninja already uses cores + 2).
+- `build-test.yml`, `build-sanitizer.yml`, `coverage.yml`: pin `cmake-test` and
+  `cmake-build` at `v0.3.15` so the callers pick the new defaults up.
+
 ## [0.3.14] - 2026-09-20
 
 ### Fixed

@@ -115,10 +115,10 @@ jobs:
         with:
           CLANG_VERSION: ${{ inputs.clang_version }}
       - name: build
-        uses: tanh-lab/ci-actions/cmake-build@v0.3.12
+        uses: tanh-lab/ci-actions/cmake-build@v0.3.15
         with:
           PRESET: ${{ matrix.preset }}
       - name: test
-        uses: tanh-lab/ci-actions/cmake-test@v0.3.12
+        uses: tanh-lab/ci-actions/cmake-test@v0.3.15
         with:
           PRESET: ${{ matrix.preset }}

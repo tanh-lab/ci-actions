@@ -105,7 +105,7 @@ jobs:
         with:
           arch: ${{ matrix.vcvars }}
       - name: build
-        uses: tanh-lab/ci-actions/cmake-build@v0.3.12
+        uses: tanh-lab/ci-actions/cmake-build@v0.3.15
         with:
           PRESET: ${{ matrix.preset }}
           CMAKE_BUILD_ARGS: ${{ matrix.args }}
@@ -116,7 +116,7 @@ jobs:
         run: grep -qF "${{ matrix.assert_grep }}" configure.log
       - name: test
         if: ${{ !matrix.build_only }}
-        uses: tanh-lab/ci-actions/cmake-test@v0.3.12
+        uses: tanh-lab/ci-actions/cmake-test@v0.3.15
         with:
           PRESET: ${{ matrix.preset }}
       - name: test the x86_64 slice under Rosetta

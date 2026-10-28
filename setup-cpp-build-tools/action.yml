@@ -33,6 +33,15 @@ runs:
           # Add LLVM apt repository for the requested clang version
           wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
           CODENAME=$(lsb_release -cs)
+          # apt.llvm.org builds a release only for the Ubuntu versions current
+          # while it is maintained: Ubuntu 26.04 (resolute, ubuntu-latest from
+          # late 2026) has LLVM 21 and later, no 20. Say so, instead of the
+          # bare "does not have a Release file" of apt-get update.
+          RELEASE_URL="https://apt.llvm.org/${CODENAME}/dists/llvm-toolchain-${CODENAME}-${{ inputs.CLANG_VERSION }}/Release"
+          if ! curl -fsSI --retry 3 "$RELEASE_URL" > /dev/null; then
+            echo "::error::apt.llvm.org has no LLVM ${{ inputs.CLANG_VERSION }} for Ubuntu ${CODENAME} ($RELEASE_URL). Pin the runner to an Ubuntu it is built for (e.g. runs-on: ubuntu-24.04) or raise CLANG_VERSION."
+            exit 1
+          fi
           echo "deb http://apt.llvm.org/${CODENAME}/ llvm-toolchain-${CODENAME}-${{ inputs.CLANG_VERSION }} main" | sudo tee /etc/apt/sources.list.d/llvm.list
           sudo apt-get update
           sudo apt-get install -y ninja-build libsystemd-dev libcurl4-openssl-dev clang-${{ inputs.CLANG_VERSION }} clang-tidy-${{ inputs.CLANG_VERSION }} clang-format-${{ inputs.CLANG_VERSION }}

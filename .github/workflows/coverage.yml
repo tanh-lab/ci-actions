@@ -37,6 +37,10 @@ on:
         description: "Newline-separated cache paths matching the key"
         type: string
         default: ""
+      runs_on:
+        description: "Runner label. An Ubuntu that apt.llvm.org builds the setup's clang for: ubuntu-latest is 26.04 (resolute), which has no LLVM 20"
+        type: string
+        default: "ubuntu-24.04"
 
 env:
   SCCACHE_GHA_ENABLED: "true"
@@ -46,7 +50,7 @@ env:
 jobs:
   coverage:
     name: coverage
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs_on }}
     permissions:
       contents: read
       id-token: write # Codecov's tokenless OIDC upload

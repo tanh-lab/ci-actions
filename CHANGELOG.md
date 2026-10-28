@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [0.3.16] - 2026-10-28
+
+### Fixed
+
+- `coverage` workflow: new `runs_on` input, default `ubuntu-24.04` (it ran on
+  `ubuntu-latest`). GitHub moved `ubuntu-latest` to Ubuntu 26.04 (resolute),
+  for which apt.llvm.org builds LLVM 21 and later but no 20, so the setup's
+  `apt-get update` failed on the missing `llvm-toolchain-resolute-20` repository
+  (exit 100) and every coverage leg died before the build. Consumers pin their
+  own Linux legs that run `setup-cpp-build-tools` the same way.
+
+### Changed
+
+- `setup-cpp-build-tools`: on Linux, checks that apt.llvm.org has the requested
+  `CLANG_VERSION` for the runner's Ubuntu before adding the repository, and
+  otherwise fails with an error naming the version, the codename and the fix
+  (pin the runner, or raise `CLANG_VERSION`) instead of apt's bare "does not
+  have a Release file".
+
 ## [0.3.15] - 2026-09-25
 
 ### Changed

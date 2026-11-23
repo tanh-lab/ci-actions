@@ -22,6 +22,10 @@ inputs:
     required: false
     default: ""
     description: "Non-empty enables SCCACHE_CACHE_MULTIARCH (caches multi -arch compiles, e.g. macOS universal; sccache flags it 'may be unsound' - adopt per leg on evidence)"
+  SCCACHE_VERSION:
+    required: false
+    default: "v0.19.0"
+    description: "sccache release to install. Pinned: sccache-action installs the newest release when no version is given, so a new sccache changed every consumer's CI the day it came out."
 
 runs:
   using: "composite"
@@ -40,8 +44,17 @@ runs:
           echo "SCCACHE_CACHE_MULTIARCH=1" >> "$GITHUB_ENV"
         fi
 
+    # Pinned to a release: without a version sccache-action installs the newest
+    # sccache. 0.20.0 retries a rate-limited cache request (up to 6 times, 8 s
+    # apart) and does so for the write check at server start too, which then
+    # outlasts the 10 s the server has to start: every compile of the job fails
+    # with "Timed out waiting for server startup". 0.19.0 opens the cache
+    # read-only for that build instead. The Actions cache takes 200 uploads a
+    # minute per repository, so a cold cache reaches that state easily.
     - name: cache the build
       uses: mozilla-actions/sccache-action@v0.0.8
+      with:
+        version: ${{ inputs.SCCACHE_VERSION }}
 
     - name: print build configuration
       shell: bash

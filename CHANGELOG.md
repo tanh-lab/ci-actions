@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [0.3.17] - 2026-11-23
+
+### Fixed
+
+- `cmake-build`: installs sccache 0.19.0 instead of the newest release (new
+  `SCCACHE_VERSION` input, default `v0.19.0`). sccache 0.20.0, released on
+  2026-11-23, retries cache requests the Actions cache rate-limits (200 uploads
+  a minute per repository), including the write check at server start; the
+  retries outlast the 10 s the server has to start, and every compile of the job
+  fails with "sccache: error: Timed out waiting for server startup". With 0.19.0
+  a rate-limited start opens the cache read-only for that build and the build
+  goes on.
+
 ## [0.3.16] - 2026-10-28
 
 ### Fixed

@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 Consumers (tanh-lib, anira) pin a release tag instead of `@main`; a breaking
 change here updates the consumers in the same motion.
 
+## [0.3.18] - 2026-11-25
+
+### Added
+
+- `cancel-closed-pr-runs.yml`: a reusable workflow that cancels the runs a pull
+  request still has in flight when it is closed or merged (the unfinished
+  `pull_request` runs on its head branch, except its own). For consumers whose
+  pull-request workflows also run for pull requests into a feature branch: such
+  a sub-pull-request is merged while its checks still run, and they would hold
+  the runners the run of the merged state needs. The caller is one workflow on
+  `pull_request: types: [closed]` that grants `actions: write`; the header
+  comment has it in full. Pull requests from forks are skipped, merge-queue
+  runs are not touched, and a run that ends between the listing and the cancel
+  does not fail the job.
+
 ## [0.3.17] - 2026-11-23
 
 ### Fixed

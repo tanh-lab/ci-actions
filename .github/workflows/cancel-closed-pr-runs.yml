@@ -1,0 +1,75 @@
+name: cancel-closed-pr-runs
+
+# Reusable: cancels the workflow runs a pull request still has in flight when it
+# is closed or merged. A closed pull request starts no new run, and nobody waits
+# for its unfinished ones; they only hold the runners the next run needs. That
+# matters for a consumer whose pull-request workflows also run for pull requests
+# into a feature branch: such a sub-pull-request is merged while its checks are
+# still running, and the run of the merged state (on the pull request of the
+# feature branch) is the one that counts.
+#
+# The caller is one small workflow (this is all of it):
+#
+#   name: cancel_closed_pr_runs
+#   on:
+#     pull_request:
+#       types: [closed]
+#   permissions:
+#     actions: write
+#   jobs:
+#     cancel:
+#       uses: tanh-lab/ci-actions/.github/workflows/cancel-closed-pr-runs.yml@<release tag>
+#
+# The caller grants `actions: write`: a called workflow cannot hold more than its
+# caller, and cancelling a run needs it. No `branches:` filter on the caller, or
+# pull requests into other branches are left out.
+#
+# What is cancelled: the runs of the `pull_request` event on the pull request's
+# head branch that are not completed, except the run this job belongs to. Runs
+# of the merge queue are on gh-readonly-queue/... branches and are not touched.
+# A pull request from a fork is skipped: the token of its run is read-only, and
+# its runs simply finish.
+
+on:
+  workflow_call:
+
+permissions:
+  actions: write
+
+jobs:
+  cancel:
+    name: cancel the closed pull request's runs
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    steps:
+      - name: cancel the unfinished runs of the head branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          SELF: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # Newest first; the unfinished runs of a branch are its newest ones.
+          RUNS=$(gh run list --branch "$HEAD_REF" --event pull_request --limit 200 \
+            --json databaseId,status,workflowName \
+            --jq '.[] | select(.status != "completed") | "\(.databaseId) \(.workflowName)"')
+          rc=0
+          count=0
+          while read -r id name; do
+            [ -n "$id" ] || continue
+            [ "$id" != "$SELF" ] || continue
+            count=$((count + 1))
+            if gh run cancel "$id" > /dev/null 2>&1; then
+              echo "cancelled $id ($name)"
+            elif [ "$(gh run view "$id" --json status --jq .status)" = "completed" ]; then
+              # It ended between the listing and the cancel: nothing left to do.
+              echo "finished meanwhile: $id ($name)"
+            else
+              echo "::error::could not cancel run $id ($name)"
+              rc=1
+            fi
+          done <<< "$RUNS"
+          echo "$count unfinished run(s) on '$HEAD_REF'"
+          exit $rc

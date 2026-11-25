@@ -1,0 +1,13 @@
+name: zz-probe-sleep-1
+
+# THROWAWAY, test branches only: a pull-request run that stays in flight long
+# enough to be cancelled.
+
+on:
+  pull_request:
+
+jobs:
+  sleep:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: sleep 900

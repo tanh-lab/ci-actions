@@ -1,0 +1,13 @@
+name: zz-probe-sleep-2
+
+# THROWAWAY, test branches only: a second pull-request run, to see that every
+# unfinished run of the head branch is cancelled, not only one.
+
+on:
+  pull_request:
+
+jobs:
+  sleep:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: sleep 900

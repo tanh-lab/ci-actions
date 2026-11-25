@@ -1,0 +1,15 @@
+name: zz-probe-cancel
+
+# THROWAWAY, test branches only: the caller of cancel-closed-pr-runs, as a
+# consumer would write it, but with the workflow of this checkout.
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  actions: write
+
+jobs:
+  cancel:
+    uses: ./.github/workflows/cancel-closed-pr-runs.yml

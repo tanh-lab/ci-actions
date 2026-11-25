@@ -19,7 +19,8 @@ change here updates the consumers in the same motion.
   `pull_request: types: [closed]` that grants `actions: write`; the header
   comment has it in full. Pull requests from forks are skipped, merge-queue
   runs are not touched, and a run that ends between the listing and the cancel
-  does not fail the job.
+  does not fail the job. It uses no action of this repository, so there is no
+  internal ref to bump.
 
 ## [0.3.17] - 2026-11-23
 
